@@ -10,6 +10,8 @@
 #include <time.h>
 
 #define NUM_PLAYERS 10
+#define NUM_SHORT 6
+#define NUM_LONG 2
 
 enum game_stage {
 	STAGE_LOBBY,
@@ -22,6 +24,35 @@ enum player_stage {
 	PLAYER_STAGE_LOBBY,
 	PLAYER_STAGE_MAIN,
 	PLAYER_STAGE_DISCUSS,
+};
+
+enum player_task_short {
+	TASK_CAFE_TRASH,
+	TASK_CAFE_COFFEE,
+	TASK_CAFE_WIRES,
+	TASK_STORAGE_TRASH,
+	TASK_ELECTRICAL_WIRES,
+	TASK_ELECTRICAL_BREAKERS,
+	TASK_ADMIN_WIRES,
+	TASK_NAVIGATION_WIRES,
+	TASK_WEAPONS_WIRES,
+	TASK_SHIELDS_WIRES,
+	TASK_O2_WIRES,
+	TASK_O2_CLEAN,
+	TASK_MEDBAY_WIRES,
+	TASK_UPPER_CATALYZER,
+	TASK_LOWER_CATALYZER,
+	TASK_UPPER_COMPRESSION_COIL,
+	TASK_LOWER_COMPRESSION_COIL,
+	TASK_SHORT_COUNT
+};
+
+enum player_task_long {
+	TASK_STORAGE_COUNT,
+	TASK_O2_LOG,
+	TASK_REACTOR_LOG,
+	TASK_ADMIN_PIN,
+	TASK_LONG_COUNT
 };
 
 enum player_location {
@@ -52,6 +83,11 @@ struct player {
 	int in_vent;
 	int is_alive;
 	int has_cooldown;
+
+	enum player_task_short short_tasks[NUM_SHORT];
+	int short_tasks_done[NUM_SHORT];
+	enum player_task_long long_tasks[NUM_LONG];
+	int long_tasks_done[NUM_LONG];
 };
 
 struct gamestate {
@@ -118,6 +154,73 @@ player_move(int pid, enum player_location location)
 }
 
 void
+player_list_tasks(int pid)
+{
+	char buf[100];
+
+	for(int i=0;i<TASK_SHORT_COUNT;i++){
+		for(int j=0;j<NUM_SHORT;j++) {
+			if(players[pid].short_tasks[j] == i) {
+				switch (i) {
+					case TASK_CAFE_TRASH:
+						sprintf(buf, "* Empty the cafetaria trash\n");
+						break;
+					case TASK_CAFE_COFFEE:
+						sprintf(buf, "* Start the coffee maker in the cafetaria\n");
+						break;
+					case TASK_CAFE_WIRES:
+						sprintf(buf, "* Fix cafeteria wireing\n");
+						break;
+					case TASK_STORAGE_TRASH:
+						sprintf(buf, "* Empty the storage trash shute\n");
+						break;
+					case TASK_ELECTRICAL_WIRES:
+						sprintf(buf, "* Fix wiring in electrical\n");
+						break;
+					case TASK_ELECTRICAL_BREAKERS:
+						sprintf(buf, "* Reset breakers in electrical\n");
+						break;
+					case TASK_ADMIN_WIRES:
+						sprintf(buf, "* Fix wiring in admin\n");
+						break;
+					case TASK_NAVIGATION_WIRES:
+						sprintf(buf, "* Fix wiring in navigation\n");
+						break;
+					case TASK_WEAPONS_WIRES:
+						sprintf(buf, "* Fix wiring in weapons\n");
+						break;
+					case TASK_SHIELDS_WIRES:
+						sprintf(buf, "* Fix wiring in shields\n");
+						break;
+					case TASK_O2_WIRES:
+						sprintf(buf, "* Fix wiring in o2\n");
+						break;
+					case TASK_O2_CLEAN:
+						sprintf(buf, "* Clean oxygenator output in o2\n");
+						break;
+					case TASK_MEDBAY_WIRES:
+						sprintf(buf, "* Fix wiring in medbay\n");
+						break;
+					case TASK_UPPER_CATALYZER:
+						sprintf(buf, "* Check catalyzer in upper engine\n");
+						break;
+					case TASK_LOWER_CATALYZER:
+						sprintf(buf, "* Check catalyzer in lower engine\n");
+						break;
+					case TASK_UPPER_COMPRESSION_COIL:
+						sprintf(buf, "* Replace compression coil in upper engine\n");
+						break;
+					case TASK_LOWER_COMPRESSION_COIL:
+						sprintf(buf, "* Replace compression coil in lower engine\n");
+						break;
+				}
+				write(players[pid].fd, buf, strlen(buf));
+			}
+		}
+	}
+}
+
+void
 player_kill(int pid, int tid)
 {
 	char buf[100];
@@ -163,6 +266,8 @@ player_kill(int pid, int tid)
 void
 start_discussion(int pid, int bid)
 {
+	char buf[100];
+
 	state.stage = STAGE_DISCUSS;
 
 	// switch everyone to the discussion state
@@ -176,17 +281,31 @@ start_discussion(int pid, int bid)
 	// Inform everyone
 	if(bid == -1) {
 		// Emergency button was pressed
-		broadcast("An emergency meeting was called by [%s], discuss", players[pid].name);
+		sprintf(buf, "An emergency meeting was called by [%s], discuss", players[pid].name);
 	} else {
 		// Body was reported
-		broadcast("The body of [%s] was found by [%s], discuss", players[bid].name, players[pid].name);
+		sprintf(buf, "The body of [%s] was found by [%s], discuss", players[bid].name, players[pid].name);
+	}
+	broadcast(buf, -1);
+
+	// List the state of the players
+	broadcast("Players:", -1);
+	for(int i=0; i<NUM_PLAYERS;i++) {
+		if (players[i].fd == -1)
+			continue;
+		if (players[i].is_alive) {
+			sprintf(buf, "* %d [%s]", i, players[i].name);
+		} else {
+			sprintf(buf, "* %d [%s] (dead)", i, players[i].name);
+		}
+		broadcast(buf, -1);
 	}
 }
 
 void
 discussion(int pid, char* input)
 {
-	char buf[200];
+	char buf[300];
 	if (buf[0] == '/') {
 		if (startswith(buf, "/vote ")) {
 		}
@@ -200,7 +319,7 @@ void
 adventure(int pid, char* input)
 {
 	char buf[1024];
-	char location[100];
+	char location[160];
 	char doors[100];
 	char other[100];
 	if (strcmp(input, "examine room", 12) == 0 || strcmp(input, "e", 2) == 0) {
@@ -395,8 +514,11 @@ adventure(int pid, char* input)
 		}
 
 		sprintf(buf, "Nothing to report here\n# ");
+	} else if (startswith(input, "check tasks")) {
+		player_list_tasks(pid);
+		return;
 	} else if (strcmp(input, "help", 4) == 0) {
-		sprintf(buf, "Commands: help, examine room, go [room], murder crewmate, report\n# ");
+		sprintf(buf, "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
 	}
 	write(players[pid].fd, buf, strlen(buf));
 }
@@ -407,6 +529,8 @@ start_game()
 	int imposternum;
 	int assigned;
 	char buf[200];
+	int temp;
+
 	broadcast("---------- [ Game is starting ] ----------", -1);
 	state.stage = STAGE_PLAYING;	
 	state.players = 0;
@@ -426,6 +550,19 @@ start_game()
 		players[i].stage = PLAYER_STAGE_MAIN;
 		players[i].location = LOC_CAFETERIA;
 		players[i].is_alive = 1;
+
+		// Assign NUM_SHORT random short tasks
+		for(int j=0;j<NUM_SHORT;j++) {
+retry:			
+			temp = rand() % TASK_SHORT_COUNT;
+			for(int k=0;k<NUM_SHORT;k++) {
+				if(players[i].short_tasks[k] == temp)
+					goto retry;
+			}
+			players[i].short_tasks[j] = temp;
+			players[i].short_tasks_done[j] = 0;
+		}
+
 		if (assigned == imposternum) {
 			players[i].is_imposter = 1;
 			sprintf(buf, "You are the imposter, kill everyone without getting noticed\n# ");
