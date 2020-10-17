@@ -1,15 +1,19 @@
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <assert.h>
-#include <limits.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#define _POSIX_C_SOURCE 2
 #include <arpa/inet.h>
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <netdb.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/select.h>
+#include <sys/socket.h>
 #include <time.h>
+#include <unistd.h>
 
 #define NUM_PLAYERS 10
 #define NUM_SHORT 6
@@ -260,6 +264,19 @@ player_list_tasks(int pid)
 }
 
 void
+end_game()
+{
+	broadcast("The game has ended, returning to lobby", -1);
+	state.stage = STAGE_LOBBY;
+
+	for(int i=0; i<NUM_PLAYERS;i++) {
+		if (players[i].fd == -1)
+			continue;
+		players[i].stage = PLAYER_STAGE_LOBBY;
+	}
+}
+
+void
 player_kill(int pid, int tid)
 {
 	char buf[100];
@@ -354,19 +371,6 @@ back_to_playing()
 		players[i].stage = PLAYER_STAGE_MAIN;
 	}
 	broadcast("-- Voting has ended, back to the ship --\n\n# ", -1);
-}
-
-void
-end_game()
-{
-	broadcast("The game has ended, returning to lobby", -1);
-	state.stage = STAGE_LOBBY;
-
-	for(int i=0; i<NUM_PLAYERS;i++) {
-		if (players[i].fd == -1)
-			continue;
-		players[i].stage = PLAYER_STAGE_LOBBY;
-	}
 }
 
 int
@@ -508,7 +512,7 @@ adventure(int pid, char* input)
 	int task_id;
 	int task_is_long;
 
-	if (strcmp(input, "examine room", 12) == 0 || strcmp(input, "e", 2) == 0) {
+	if (strncmp(input, "examine room", 12) == 0 || strncmp(input, "e", 2) == 0) {
 		switch(players[pid].location) {
 			case LOC_CAFETERIA:
 				sprintf(location, "You are standing in the middle of the cafeteria, in the center there's an emergency button\n");
@@ -704,7 +708,7 @@ adventure(int pid, char* input)
 	} else if (startswith(input, "check tasks")) {
 		player_list_tasks(pid);
 		return;
-	} else if (strcmp(input, "help", 4) == 0) {
+	} else if (strncmp(input, "help", 4) == 0) {
 		sprintf(buf, "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
 	} else {
 		// check if it was a task
