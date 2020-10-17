@@ -884,6 +884,9 @@ handle_input(int fd)
 				} else if (strncmp(buf, "/shrug", 6) == 0) {
 					sprintf(buf2, "[%s] ¯\\_(ツ)_/¯", players[pid].name);
 					broadcast(buf2, fd);
+				} else if (strncmp(buf, "/me ", 3) == 0) {
+					sprintf(buf2, " * [%s] %s", players[pid].name, &buf[4]);
+					broadcast(buf2, fd);
 				}
 			} else {
 				for(int i=0;i<strlen(buf);i++){
@@ -891,7 +894,7 @@ handle_input(int fd)
 						buf[i] = '\0';
 					}
 				}
-				sprintf(buf2, "[%s] %s", players[pid].name, buf);
+				sprintf(buf2, "[%s]: %s", players[pid].name, buf);
 				broadcast(buf2, fd);
 			}
 			break;
