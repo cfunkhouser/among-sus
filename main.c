@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <assert.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -77,7 +79,7 @@ enum player_task_long {
 
 const char long_task_descriptions[][45] = {
 	"Take count of the boxes in storage",
-	"Log O2 numbers",
+	"Log o2 numbers",
 	"Log reactor numbers",
 	"Enter pin at admin",
 };
@@ -127,6 +129,8 @@ struct player {
 	int in_vent;
 	int is_alive;
 	int has_cooldown;
+	int voted;
+	int votes;
 
 	enum player_task_short short_tasks[NUM_SHORT];
 	int short_tasks_done[NUM_SHORT];
@@ -295,6 +299,7 @@ player_kill(int pid, int tid)
 	// Check win condition
 	if(crew_alive == 1) {
 		broadcast("The imposter won", -1);
+		end_game();
 	}
 }
 
@@ -338,14 +343,138 @@ start_discussion(int pid, int bid)
 }
 
 void
+end_game()
+{
+	broadcast("The game has ended, returning to lobby", -1);
+	state.stage = STAGE_LOBBY;
+
+	for(int i=0; i<NUM_PLAYERS;i++) {
+		if (players[i].fd == -1)
+			continue;
+		players[i].stage = PLAYER_STAGE_LOBBY;
+	}
+}
+
+int
+strtoint(const char *nptr, char **endptr, int base)
+{
+	long x = strtol(nptr, endptr, base);
+	assert(x <= INT_MAX);
+	return (int) x;
+}
+
+void
 discussion(int pid, char* input)
 {
 	char buf[300];
-	if (buf[0] == '/') {
-		if (startswith(buf, "/vote ")) {
+	int vote;
+	int max_votes;
+	int tie;
+	int winner;
+	int crew_alive;
+	char temp[5];
+
+	// TODO: implement broadcast to dead players
+	if (players[pid].is_alive == 0)
+		return;
+
+	if (input[0] == '/') {
+		if (startswith(input, "/vote ") || startswith(input, "/yeet")) {
+			if (players[pid].voted) {
+				sprintf(buf, "You can only vote once\n");
+				write(players[pid].fd, buf, strlen(buf));
+				return;
+			}
+			strncpy(temp, &input[6], 4);
+			printf("Decoding '%s' now\n", temp);
+			vote = strtoint(temp, NULL, 10);
+
+			printf("[%s] voted for %d\n", players[pid].name, vote);
+			if(vote < 0 || vote > NUM_PLAYERS-1 || players[vote].fd == -1) {
+				sprintf(buf, "Invalid vote, no such player\n");
+				write(players[pid].fd, buf, strlen(buf));
+				return;
+			}
+			players[pid].voted = 1;
+			players[vote].votes++;
+
+			// Check if voting is complete
+			for(int i=0;i<NUM_PLAYERS;i++) {
+				if(players[i].fd != -1 && 
+						players[i].voted == 0 &&
+						players[i].is_alive == 1) {
+					printf("No vote from [%s] yet\n", players[i].name);
+					goto not_yet;
+				}
+			}
+
+			printf("Voting complete\n");
+
+			// Count votes
+			for(int i=0;i<NUM_PLAYERS;i++) {
+				if(players[i].fd == -1)
+					continue;
+
+				if(players[i].votes > max_votes){
+					max_votes = players[i].votes;
+					tie = 0;
+					winner = i;
+					continue;
+				}
+
+				if(players[i].votes == max_votes) {
+					tie = 1;
+				}
+			}
+
+			if (tie) {
+				broadcast("The voting ended in a tie", -1);
+			} else {
+				sprintf(buf, "The crew voted to eject [%s]\n", players[winner].name);
+				broadcast(buf, -1);
+			}
+
+			// dramatic pause
+			for(int i=0;i<5;i++) {
+				sleep(1);
+				broadcast(".", -1);
+			}
+
+			if (players[winner].is_imposter) {
+				sprintf(buf, "It turns out [%s] was an imposter", players[winner].name);
+				broadcast(buf, -1);
+				broadcast("It crew wins!", -1);
+				end_game();
+				return;
+			} else {
+				sprintf(buf, "Sadly [%s] was not an imposter", players[winner].name);
+				broadcast(buf, -1);
+				players[winner].is_alive = 0;
+
+				// count alive crew
+				for(int i=0; i<NUM_PLAYERS;i++) {
+					if (players[i].fd == -1)
+						continue;
+					if (players[i].is_alive == 0)
+						continue;
+
+					if (players[i].is_imposter)
+						continue;
+
+					crew_alive++;
+				}
+
+				// Check win condition
+				if(crew_alive == 1) {
+					broadcast("The imposter won", -1);
+				}
+			}
+
+not_yet:
+			broadcast("A vote has been cast", -1);
 		}
 	} else {
-		sprintf(buf, "[%s] %s", players[pid].name, buf);
+		sprintf(buf, "[%s] %s", players[pid].name, input);
 		broadcast(buf, players[pid].fd);
 	}
 }
@@ -475,6 +604,7 @@ adventure(int pid, char* input)
 			if (players[pid].location == LOC_ELECTRICAL ||
 					players[pid].location == LOC_ADMIN ||
 					players[pid].location == LOC_CAFETERIA ||
+					players[pid].location == LOC_SHIELDS ||
 					players[pid].location == LOC_COMMUNICATIONS)
 				player_move(pid, LOC_STORAGE);
 		} else if (startswith(input, "go admin")) {
@@ -672,10 +802,12 @@ handle_input(int fd)
 	len = read(fd, buf, 200);
 	if (len < 0) {
 		printf("Read error from player %d\n", pid);
+		players[pid].fd = -1;
 		return -1;
 	}
 	if (len == 0) {
 		printf("Received EOF from player %d\n", pid);
+		players[pid].fd = -1;
 		return -2;
 	}
 
@@ -691,7 +823,25 @@ handle_input(int fd)
 	switch(players[pid].stage) {
 		case PLAYER_STAGE_NAME:
 			// Setting the name after connection and informing the lobby
+			if(strlen(buf) < 2) {
+				sprintf(buf, "Too short, pick another name\n >");
+				write(fd, buf, strlen(buf));
+				return 0;
+			}
+			if(strlen(buf) > 10) {
+				sprintf(buf, "Too long, pick another name\n >");
+				write(fd, buf, strlen(buf));
+				return 0;
+			}
+			for(int i=0;i<strlen(buf);i++){
+				if(!isascii(buf[i])) {
+					sprintf(buf, "Invalid char, pick another name\n >");
+					write(fd, buf, strlen(buf));
+					return 0;
+				}
+			}
 			strcpy(players[pid].name, buf);
+
 			sprintf(buf, "[%s] has joined the lobby", players[pid].name);
 			broadcast(buf, fd);
 			players[pid].stage = PLAYER_STAGE_LOBBY;
