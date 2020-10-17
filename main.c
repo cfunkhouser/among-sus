@@ -56,7 +56,7 @@ enum player_task_long {
 };
 
 enum player_location {
-	LOC_CAFETARIA,
+	LOC_CAFETERIA,
 	LOC_REACTOR,
 	LOC_UPPER_ENGINE,
 	LOC_LOWER_ENGINE,
@@ -169,13 +169,13 @@ player_list_tasks(int pid)
 				}
 				switch (i) {
 					case TASK_CAFE_TRASH:
-						sprintf(buf, " [%s] Empty the cafetaria trash\n", cm);
+						sprintf(buf, " [%s] Empty the cafeteria trash\n", cm);
 						break;
 					case TASK_CAFE_COFFEE:
-						sprintf(buf, " [%s] Start the coffee maker in the cafetaria\n", cm);
+						sprintf(buf, " [%s] Start the coffee maker in the cafeteria\n", cm);
 						break;
 					case TASK_CAFE_WIRES:
-						sprintf(buf, " [%s] Fix cafetaria wireing\n", cm);
+						sprintf(buf, " [%s] Fix cafeteria wireing\n", cm);
 						break;
 					case TASK_STORAGE_TRASH:
 						sprintf(buf, " [%s] Empty the storage trash shute\n", cm);
@@ -330,8 +330,8 @@ adventure(int pid, char* input)
 	char other[100];
 	if (strcmp(input, "examine room", 12) == 0 || strcmp(input, "e", 2) == 0) {
 		switch(players[pid].location) {
-			case LOC_CAFETARIA:
-				sprintf(location, "You are standing in the middle of the cafetaria, in the center there's an emergency button\n");
+			case LOC_CAFETERIA:
+				sprintf(location, "You are standing in the middle of the cafeteria, in the center there's an emergency button\n");
 				sprintf(doors, "you can move to: medbay, admin, weapons\n");
 				break;
 			case LOC_REACTOR:
@@ -353,7 +353,7 @@ adventure(int pid, char* input)
 				break;
 			case LOC_MEDBAY:
 				sprintf(location, "You are in a room with beds and a medical scanner.\n");
-				sprintf(doors, "you can move to: upper engine, cafetaria\n");
+				sprintf(doors, "you can move to: upper engine, cafeteria\n");
 				break;
 			case LOC_ELECTRICAL:
 				sprintf(location, "You are in a room filled with equipment racks. Some of them have wires sticking out of them\n");
@@ -410,7 +410,7 @@ adventure(int pid, char* input)
 			if (players[pid].location == LOC_MEDBAY ||
 					players[pid].location == LOC_WEAPONS ||
 					players[pid].location == LOC_ADMIN)
-				player_move(pid, LOC_CAFETARIA);
+				player_move(pid, LOC_CAFETERIA);
 		} else if (startswith(input, "go react")) {
 			if (players[pid].location == LOC_SECURITY ||
 					players[pid].location == LOC_UPPER_ENGINE ||
@@ -433,7 +433,7 @@ adventure(int pid, char* input)
 				player_move(pid, LOC_SECURITY);
 		} else if (startswith(input, "go medbay")) {
 			if (players[pid].location == LOC_UPPER_ENGINE ||
-					players[pid].location == LOC_CAFETARIA)
+					players[pid].location == LOC_CAFETERIA)
 				player_move(pid, LOC_MEDBAY);
 		} else if (startswith(input, "go electrical")) {
 			if (players[pid].location == LOC_LOWER_ENGINE ||
@@ -442,11 +442,11 @@ adventure(int pid, char* input)
 		} else if (startswith(input, "go storage")) {
 			if (players[pid].location == LOC_ELECTRICAL ||
 					players[pid].location == LOC_ADMIN ||
-					players[pid].location == LOC_CAFETARIA ||
+					players[pid].location == LOC_CAFETERIA ||
 					players[pid].location == LOC_COMMUNICATIONS)
 				player_move(pid, LOC_STORAGE);
 		} else if (startswith(input, "go admin")) {
-			if (players[pid].location == LOC_CAFETARIA ||
+			if (players[pid].location == LOC_CAFETERIA ||
 					players[pid].location == LOC_STORAGE)
 				player_move(pid, LOC_ADMIN);
 		} else if (startswith(input, "go comm")) {
@@ -459,7 +459,7 @@ adventure(int pid, char* input)
 					players[pid].location == LOC_NAVIGATION)
 				player_move(pid, LOC_O2);
 		} else if (startswith(input, "go weapon")) {
-			if (players[pid].location == LOC_CAFETARIA ||
+			if (players[pid].location == LOC_CAFETERIA ||
 					players[pid].location == LOC_O2 ||
 					players[pid].location == LOC_NAVIGATION)
 				player_move(pid, LOC_WEAPONS);
@@ -554,7 +554,7 @@ start_game()
 			continue;
 
 		players[i].stage = PLAYER_STAGE_MAIN;
-		players[i].location = LOC_CAFETARIA;
+		players[i].location = LOC_CAFETERIA;
 		players[i].is_alive = 1;
 
 		// Assign NUM_SHORT random short tasks
