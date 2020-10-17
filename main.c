@@ -680,7 +680,7 @@ handle_input(int fd)
 	}
 
 	for(int i=0; i<sizeof(buf); i++) {
-		if (buf[i] == '\n') {
+		if (buf[i] == '\n' || buf[i] == '\r') {
 			buf[i] = '\0';
 			break;
 		}
@@ -731,6 +731,13 @@ welcome_player(int fd, struct sockaddr_in addr)
 {
 	int i;
 	char buf[100];
+
+	if(state.stage != STAGE_LOBBY) {
+		sprintf(buf, "There is a game in progress, try again later\n");
+		write(fd, buf, strlen(buf));
+		close(fd);
+		return;
+	}
 
 	for (i = 0; i < sizeof(players); i++) {
 		if (players[i].fd > 0) {
