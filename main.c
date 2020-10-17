@@ -99,6 +99,23 @@ enum player_location {
 	LOC_NAVIGATION,
 };
 
+const char locations[][45] = {
+	"cafeteria",
+	"reactor",
+	"upper",
+	"lower",
+	"security",
+	"medbay",
+	"electrical",
+	"storage",
+	"admin",
+	"communications",
+	"o2",
+	"weapons",
+	"shields",
+	"navigation"
+};
+
 struct player {
 	int fd;
 	struct sockaddr_in *addr;
@@ -181,6 +198,28 @@ player_move(int pid, enum player_location location)
 }
 
 void
+task_completed(int pid, int task_id, int long_task)
+{
+	// Mark task completed for player
+	if (!long_task) {
+		for(int i=0; i<NUM_SHORT; i++) {
+			if (players[pid].short_tasks[i] == task_id) {
+				players[pid].short_tasks_done[i] = 1;
+			}
+		}
+	} else {
+		for(int i=0; i<NUM_LONG; i++) {
+			if (players[pid].long_tasks[i] == task_id) {
+				players[pid].long_tasks_done[i] = 1;
+			}
+		}
+	}
+
+	// Check win condition
+	
+}
+
+void
 player_list_tasks(int pid)
 {
 	char buf[100];
@@ -212,6 +251,8 @@ player_list_tasks(int pid)
 			}
 		}
 	}
+	sprintf(buf, "# ");
+	write(players[pid].fd, buf, strlen(buf));
 }
 
 void
@@ -316,6 +357,9 @@ adventure(int pid, char* input)
 	char location[160];
 	char doors[100];
 	char other[100];
+	int task_id;
+	int task_is_long;
+
 	if (strcmp(input, "examine room", 12) == 0 || strcmp(input, "e", 2) == 0) {
 		switch(players[pid].location) {
 			case LOC_CAFETERIA:
@@ -513,6 +557,34 @@ adventure(int pid, char* input)
 		return;
 	} else if (strcmp(input, "help", 4) == 0) {
 		sprintf(buf, "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
+	} else {
+		// check if it was a task
+		task_id = -1;
+		task_is_long = 0;
+		for(int i=0;i<TASK_SHORT_COUNT;i++) {
+			if(strcmp(input, short_task_descriptions[i]) == 0) {
+				task_id = i;
+				break;
+			}
+		}
+		for(int i=0;i<TASK_LONG_COUNT;i++) {
+			if(strcmp(input, long_task_descriptions[i]) == 0) {
+				task_id = i;
+				task_is_long = 1;
+				break;
+			}
+		}
+		if (task_id == -1) {
+			sprintf(buf, "Invalid instruction\n# ");
+		} else {
+			// check it was in the right room
+			if (strstr(input, locations[players[pid].location]) != NULL) {
+				task_completed(pid, task_id, task_is_long);
+				sprintf(buf, "Completed task\n# ");
+			} else {
+				sprintf(buf, "You're in the wrong place for that\n# ");
+			}
+		}
 	}
 	write(players[pid].fd, buf, strlen(buf));
 }
