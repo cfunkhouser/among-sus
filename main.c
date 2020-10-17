@@ -1,4 +1,5 @@
-#define _POSIX_C_SOURCE 2
+#define _POSIX_C_SOURCE 200112L
+#define _XOPEN_SOURCE 700
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
