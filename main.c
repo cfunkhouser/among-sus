@@ -726,7 +726,7 @@ handle_input(int fd)
 	return 0;
 }
 
-void
+int
 welcome_player(int fd, struct sockaddr_in addr)
 {
 	int i;
@@ -736,7 +736,7 @@ welcome_player(int fd, struct sockaddr_in addr)
 		sprintf(buf, "There is a game in progress, try again later\n");
 		write(fd, buf, strlen(buf));
 		close(fd);
-		return;
+		return -1;
 	}
 
 	for (i = 0; i < sizeof(players); i++) {
@@ -749,7 +749,7 @@ welcome_player(int fd, struct sockaddr_in addr)
 	sprintf(buf, "There are no spots available, goodbye!\n");
 	write(fd, buf, strlen(buf));
 	close(fd);
-	return;
+	return -1;
 
 found_spot:
 	printf("Assigned player to spot %d\n", i);
@@ -762,6 +762,7 @@ found_spot:
 	players[i].stage = PLAYER_STAGE_NAME;
 	sprintf(buf, "Welcome player %d!\n\nEnter your name:\n> ", i);
 	write(fd, buf, strlen(buf));
+	return 0;
 }
 
 int
@@ -821,7 +822,9 @@ main()
 
 					printf("New connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 					FD_SET(new_fd, &afds);
-					welcome_player(new_fd, client_addr);
+					if(welcome_player(new_fd, client_addr)<0){
+						FD_CLR(new_fd, &afds);
+					}
 				} else {
 					if(handle_input(i) < 0) {
 						close(i);
