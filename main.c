@@ -321,10 +321,10 @@ start_discussion(int pid, int bid)
 	// Inform everyone
 	if(bid == -1) {
 		// Emergency button was pressed
-		sprintf(buf, "An emergency meeting was called by [%s], discuss", players[pid].name);
+		sprintf(buf, "\nAn emergency meeting was called by [%s], discuss", players[pid].name);
 	} else {
 		// Body was reported
-		sprintf(buf, "The body of [%s] was found by [%s], discuss", players[bid].name, players[pid].name);
+		sprintf(buf, "\nThe body of [%s] was found by [%s], discuss", players[bid].name, players[pid].name);
 	}
 	broadcast(buf, -1);
 
@@ -340,6 +340,20 @@ start_discussion(int pid, int bid)
 		}
 		broadcast(buf, -1);
 	}
+}
+
+void
+back_to_playing()
+{
+	state.stage = STAGE_PLAYING;
+	// switch everyone to the playing state
+	for(int i=0; i<NUM_PLAYERS;i++) {
+		if (players[i].fd == -1)
+			continue;
+
+		players[i].stage = PLAYER_STAGE_MAIN;
+	}
+	broadcast("-- Voting has ended, back to the ship --\n\n# ", -1);
 }
 
 void
@@ -429,6 +443,8 @@ discussion(int pid, char* input)
 
 			if (tie) {
 				broadcast("The voting ended in a tie", -1);
+				back_to_playing();
+				return;
 			} else {
 				sprintf(buf, "The crew voted to eject [%s]\n", players[winner].name);
 				broadcast(buf, -1);
@@ -467,6 +483,9 @@ discussion(int pid, char* input)
 				// Check win condition
 				if(crew_alive == 1) {
 					broadcast("The imposter won", -1);
+				} else {
+					back_to_playing();
+					return;
 				}
 			}
 
