@@ -706,6 +706,12 @@ adventure(int pid, char* input)
 		}
 
 		sprintf(buf, "Nothing to report here\n# ");
+	} else if (startswith(input, "press emergency button")) {
+		if (players[pid].location != LOC_CAFETERIA) {
+			sprintf(buf, "You can't do that here");
+		} else {
+			start_discussion(pid, -1);
+		}
 	} else if (startswith(input, "check tasks")) {
 		player_list_tasks(pid);
 		return;
