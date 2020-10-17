@@ -157,61 +157,67 @@ void
 player_list_tasks(int pid)
 {
 	char buf[100];
+	char cm[2];
 
 	for(int i=0;i<TASK_SHORT_COUNT;i++){
 		for(int j=0;j<NUM_SHORT;j++) {
 			if(players[pid].short_tasks[j] == i) {
+				if(players[pid].short_tasks_done[j]) {
+					sprintf(cm, "*");
+				} else {
+					sprintf(cm, " ");
+				}
 				switch (i) {
 					case TASK_CAFE_TRASH:
-						sprintf(buf, "* Empty the cafetaria trash\n");
+						sprintf(buf, " [%s] Empty the cafetaria trash\n", cm);
 						break;
 					case TASK_CAFE_COFFEE:
-						sprintf(buf, "* Start the coffee maker in the cafetaria\n");
+						sprintf(buf, " [%s] Start the coffee maker in the cafetaria\n", cm);
 						break;
 					case TASK_CAFE_WIRES:
-						sprintf(buf, "* Fix cafeteria wireing\n");
+						sprintf(buf, " [%s] Fix cafeteria wireing\n", cm);
 						break;
 					case TASK_STORAGE_TRASH:
-						sprintf(buf, "* Empty the storage trash shute\n");
+						sprintf(buf, " [%s] Empty the storage trash shute\n", cm);
 						break;
 					case TASK_ELECTRICAL_WIRES:
-						sprintf(buf, "* Fix wiring in electrical\n");
+						sprintf(buf, " [%s] Fix wiring in electrical\n", cm);
 						break;
 					case TASK_ELECTRICAL_BREAKERS:
-						sprintf(buf, "* Reset breakers in electrical\n");
+						sprintf(buf, " [%s] Reset breakers in electrical\n", cm);
 						break;
 					case TASK_ADMIN_WIRES:
-						sprintf(buf, "* Fix wiring in admin\n");
+						sprintf(buf, " [%s] Fix wiring in admin\n", cm);
 						break;
 					case TASK_NAVIGATION_WIRES:
-						sprintf(buf, "* Fix wiring in navigation\n");
+						sprintf(buf, " [%s] Fix wiring in navigation\n", cm);
 						break;
 					case TASK_WEAPONS_WIRES:
-						sprintf(buf, "* Fix wiring in weapons\n");
+						sprintf(buf, " [%s] Fix wiring in weapons\n", cm);
 						break;
 					case TASK_SHIELDS_WIRES:
-						sprintf(buf, "* Fix wiring in shields\n");
+						sprintf(buf, " [%s] Fix wiring in shields\n", cm);
 						break;
 					case TASK_O2_WIRES:
-						sprintf(buf, "* Fix wiring in o2\n");
+						sprintf(buf, " [%s] Fix wiring in o2\n", cm);
 						break;
 					case TASK_O2_CLEAN:
-						sprintf(buf, "* Clean oxygenator output in o2\n");
+						sprintf(buf, " [%s] Clean oxygenator output in o2\n", cm);
 						break;
 					case TASK_MEDBAY_WIRES:
-						sprintf(buf, "* Fix wiring in medbay\n");
+						sprintf(buf, " [%s] Fix wiring in medbay\n", cm);
 						break;
 					case TASK_UPPER_CATALYZER:
-						sprintf(buf, "* Check catalyzer in upper engine\n");
+						sprintf(buf, " [%s] Check catalyzer in upper engine\n", cm);
 						break;
 					case TASK_LOWER_CATALYZER:
-						sprintf(buf, "* Check catalyzer in lower engine\n");
+						sprintf(buf, " [%s] Check catalyzer in lower engine\n", cm);
 						break;
 					case TASK_UPPER_COMPRESSION_COIL:
-						sprintf(buf, "* Replace compression coil in upper engine\n");
+						sprintf(buf, " [%s] Replace compression coil in upper engine\n", cm);
 						break;
 					case TASK_LOWER_COMPRESSION_COIL:
-						sprintf(buf, "* Replace compression coil in lower engine\n");
+						sprintf(buf, " [%s] Replace compression coil in lower engine\n", cm);
 						break;
 				}
 				write(players[pid].fd, buf, strlen(buf));
