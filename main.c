@@ -887,6 +887,22 @@ handle_input(int fd)
 				} else if (strncmp(buf, "/me ", 3) == 0) {
 					sprintf(buf2, " * [%s] %s", players[pid].name, &buf[4]);
 					broadcast(buf2, fd);
+				} else if (strncmp(buf, "/help", 5) == 0) {
+					sprintf(buf, "Commands: /start, /list and more\n");
+					write(fd, buf, strlen(buf));
+				} else if (strncmp(buf, "/list", 5) == 0) {
+					for(int i=0;i<NUM_PLAYERS;i++){
+						if (players[i].fd == -1)
+							continue;
+						if (players[i].stage == PLAYER_STAGE_NAME) {
+							sprintf(buf, " %d: -[ setting name ]-\n", i);
+						} else if (players[i].is_admin) {
+							sprintf(buf, " %d: %s (admin)\n", i, players[i].name);
+						} else {
+							sprintf(buf, " %d: %s\n", i, players[i].name);
+						}
+						write(fd, buf, strlen(buf));
+					}
 				}
 			} else {
 				for(int i=0;i<strlen(buf);i++){
