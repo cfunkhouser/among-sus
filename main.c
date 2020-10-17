@@ -944,7 +944,7 @@ main()
 {
 	int listen_fd;
 	int new_fd;
-	int client_size;
+	socklen_t client_size;
 	struct sockaddr_in listen_addr, client_addr;
 	int port = 1234;
 	int i;
