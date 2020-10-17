@@ -840,6 +840,11 @@ handle_input(int fd)
 	if (len == 0) {
 		printf("Received EOF from player %d\n", pid);
 		players[pid].fd = -1;
+		if (players[pid].stage != PLAYER_STAGE_NAME) {
+			sprintf(buf, "Player [%s] left the game.", players[pid].name);
+			printf("Sending parting message\n");
+			broadcast(buf, -1);
+		}
 		return -2;
 	}
 
