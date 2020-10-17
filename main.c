@@ -75,6 +75,13 @@ enum player_task_long {
 	TASK_LONG_COUNT
 };
 
+const char long_task_descriptions[][45] = {
+	"Take count of the boxes in storage",
+	"Log O2 numbers",
+	"Log reactor numbers",
+	"Enter pin at admin",
+};
+
 enum player_location {
 	LOC_CAFETERIA,
 	LOC_REACTOR,
@@ -188,6 +195,19 @@ player_list_tasks(int pid)
 					sprintf(cm, " ");
 				}
 				sprintf(buf, " [%s] %s\n", cm, short_task_descriptions[i]);
+				write(players[pid].fd, buf, strlen(buf));
+			}
+		}
+	}
+	for(int i=0;i<TASK_LONG_COUNT;i++){
+		for(int j=0;j<NUM_LONG;j++) {
+			if(players[pid].long_tasks[j] == i) {
+				if(players[pid].long_tasks_done[j]) {
+					sprintf(cm, "*");
+				} else {
+					sprintf(cm, " ");
+				}
+				sprintf(buf, " [%s] %s\n", cm, long_task_descriptions[i]);
 				write(players[pid].fd, buf, strlen(buf));
 			}
 		}
@@ -535,6 +555,18 @@ retry:
 			}
 			players[i].short_tasks[j] = temp;
 			players[i].short_tasks_done[j] = 0;
+		}
+
+		// Assign NUM_LONG random long tasks
+		for(int j=0;j<NUM_LONG;j++) {
+retry2:			
+			temp = rand() % TASK_LONG_COUNT;
+			for(int k=0;k<NUM_LONG;k++) {
+				if(players[i].long_tasks[k] == temp)
+					goto retry2;
+			}
+			players[i].long_tasks[j] = temp;
+			players[i].long_tasks_done[j] = 0;
 		}
 
 		if (assigned == imposternum) {
