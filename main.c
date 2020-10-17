@@ -805,13 +805,35 @@ retry2:
 
 		if (assigned == imposternum) {
 			players[i].is_imposter = 1;
-			sprintf(buf, "You are the imposter, kill everyone without getting noticed\n# ");
+			sprintf(buf, "You are the imposter, kill everyone without getting noticed.\n");
 		} else {
 			players[i].is_imposter = 0;
-			sprintf(buf, "You are a crewmate, complete your tasks before everyone is killed\n# ");
+			sprintf(buf, "You are a crewmate, complete your tasks before everyone is killed.\n");
 		}
 		write(players[i].fd, buf, strlen(buf));
 		assigned++;
+	}
+
+
+	// dramatic pause
+	for(int i=0;i<5;i++) {
+		sleep(1);
+		broadcast(".", -1);
+	}
+
+	for(int i=0;i<NUM_PLAYERS;i++) {
+		if(players[i].fd == -1)
+			continue;
+
+		if(players[i].is_imposter) {
+			sprintf(buf, "You are in a spaceship, the other %d crew members think you're on of them\n# ", assigned - 1);
+			write(players[i].fd, buf, strlen(buf));
+		} else {
+			sprintf(buf, "You are in a spaceship, one of the crew of %d people\n", assigned);
+			write(players[i].fd, buf, strlen(buf));
+			sprintf(buf, "The tasks have been handed out and the daily routine is starting up, but there are rumors one of your fellow crewmates isn't a crewmate at all.\n #");
+			write(players[i].fd, buf, strlen(buf));
+		}
 	}
 }
 
