@@ -47,6 +47,26 @@ enum player_task_short {
 	TASK_SHORT_COUNT
 };
 
+const char short_task_descriptions[][45] = {
+	"Empty the cafeteria trash",
+	"Start the coffee maker in the cafeteria",
+	"Fix cafeteria wireing",
+	"Empty the storage trash shute",
+	"Fix wiring in electrical",
+	"Reset breakers in electrical",
+	"Fix wiring in admin",
+	"Fix wiring in navigation",
+	"Fix wiring in weapons",
+	"Fix wiring in shields",
+	"Fix wiring in o2",
+	"Clean oxygenator output in o2",
+	"Fix wiring in medbay",
+	"Check catalyzer in upper engine",
+	"Check catalyzer in lower engine",
+	"Replace compression coil in upper engine",
+	"Replace compression coil in lower engine"
+};
+
 enum player_task_long {
 	TASK_STORAGE_COUNT,
 	TASK_O2_LOG,
@@ -167,59 +187,7 @@ player_list_tasks(int pid)
 				} else {
 					sprintf(cm, " ");
 				}
-				switch (i) {
-					case TASK_CAFE_TRASH:
-						sprintf(buf, " [%s] Empty the cafeteria trash\n", cm);
-						break;
-					case TASK_CAFE_COFFEE:
-						sprintf(buf, " [%s] Start the coffee maker in the cafeteria\n", cm);
-						break;
-					case TASK_CAFE_WIRES:
-						sprintf(buf, " [%s] Fix cafeteria wireing\n", cm);
-						break;
-					case TASK_STORAGE_TRASH:
-						sprintf(buf, " [%s] Empty the storage trash shute\n", cm);
-						break;
-					case TASK_ELECTRICAL_WIRES:
-						sprintf(buf, " [%s] Fix wiring in electrical\n", cm);
-						break;
-					case TASK_ELECTRICAL_BREAKERS:
-						sprintf(buf, " [%s] Reset breakers in electrical\n", cm);
-						break;
-					case TASK_ADMIN_WIRES:
-						sprintf(buf, " [%s] Fix wiring in admin\n", cm);
-						break;
-					case TASK_NAVIGATION_WIRES:
-						sprintf(buf, " [%s] Fix wiring in navigation\n", cm);
-						break;
-					case TASK_WEAPONS_WIRES:
-						sprintf(buf, " [%s] Fix wiring in weapons\n", cm);
-						break;
-					case TASK_SHIELDS_WIRES:
-						sprintf(buf, " [%s] Fix wiring in shields\n", cm);
-						break;
-					case TASK_O2_WIRES:
-						sprintf(buf, " [%s] Fix wiring in o2\n", cm);
-						break;
-					case TASK_O2_CLEAN:
-						sprintf(buf, " [%s] Clean oxygenator output in o2\n", cm);
-						break;
-					case TASK_MEDBAY_WIRES:
-						sprintf(buf, " [%s] Fix wiring in medbay\n", cm);
-						break;
-					case TASK_UPPER_CATALYZER:
-						sprintf(buf, " [%s] Check catalyzer in upper engine\n", cm);
-						break;
-					case TASK_LOWER_CATALYZER:
-						sprintf(buf, " [%s] Check catalyzer in lower engine\n", cm);
-						break;
-					case TASK_UPPER_COMPRESSION_COIL:
-						sprintf(buf, " [%s] Replace compression coil in upper engine\n", cm);
-						break;
-					case TASK_LOWER_COMPRESSION_COIL:
-						sprintf(buf, " [%s] Replace compression coil in lower engine\n", cm);
-						break;
-				}
+				sprintf(buf, " [%s] %s\n", cm, short_task_descriptions[i]);
 				write(players[pid].fd, buf, strlen(buf));
 			}
 		}
