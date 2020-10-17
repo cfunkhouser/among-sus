@@ -883,6 +883,11 @@ handle_input(int fd)
 					}
 				}
 			} else {
+				for(int i=0;i<strlen(buf);i++){
+					if(!isascii(buf[i])) {
+						buf[i] = '\0';
+					}
+				}
 				sprintf(buf2, "[%s] %s", players[pid].name, buf);
 				broadcast(buf2, fd);
 			}
