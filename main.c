@@ -169,6 +169,8 @@ broadcast(char* message, int notfd)
 			continue;
 		if (players[pid].fd == notfd)
 			continue;
+		if (players[pid].stage == PLAYER_STAGE_NAME)
+			continue;
 
 		write(players[pid].fd, buf, strlen(buf));
 	}
