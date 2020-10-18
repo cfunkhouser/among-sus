@@ -476,6 +476,7 @@ back_to_playing()
 			continue;
 
 		players[i].stage = PLAYER_STAGE_MAIN;
+		players[i].location = LOC_CAFETERIA;
 	}
 	broadcast("-- Voting has ended, back to the ship --\n\n# ", -1);
 }
