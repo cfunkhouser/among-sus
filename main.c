@@ -130,7 +130,7 @@ const char locations[][45] = {
 enum player_location doors[][10] = {
 	[LOC_CAFETERIA] = { LOC_MEDBAY, LOC_ADMIN, LOC_WEAPONS, -1 },
 	[LOC_REACTOR] = { LOC_UPPER_ENGINE, LOC_SECURITY, LOC_LOWER_ENGINE, -1 },
-	[LOC_UPPER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, -1 },
+	[LOC_UPPER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, LOC_MEDBAY, -1 },
 	[LOC_LOWER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, -1 },
 	[LOC_SECURITY] = { LOC_UPPER_ENGINE, LOC_REACTOR, LOC_LOWER_ENGINE, -1 },
 	[LOC_MEDBAY] = { LOC_UPPER_ENGINE, LOC_CAFETERIA, -1 },
@@ -593,6 +593,7 @@ check_votes:
 
 			}
 			check_win_condition();
+			back_to_playing();
 			return;
 
 not_yet:
