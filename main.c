@@ -23,6 +23,8 @@
 #define MIN_NAME 2
 #define MAX_NAME 10
 
+#define MOVEMENT_NOTIFICATIONS 1
+
 enum game_stage {
 	STAGE_LOBBY,
 	STAGE_PLAYING,
@@ -239,6 +241,8 @@ void
 player_move(int pid, enum player_location location)
 {
 	char buf[100];
+	enum player_location old_location = players[pid].location;
+
 	printf("Moving player %d to %d\n", pid, location);
 	players[pid].location = location;
 	players[pid].has_cooldown = 0;
@@ -253,6 +257,25 @@ player_move(int pid, enum player_location location)
 
 		snprintf(buf, sizeof(buf), "you enter the room and see the body of [%s] laying on the floor\n", players[i].name);
 		write(players[pid].fd, buf, strlen(buf));
+	}
+
+	// Notify players you're moving
+	if (MOVEMENT_NOTIFICATIONS) {
+		for (int i=0; i<NUM_PLAYERS;i++) {
+			if (players[i].fd == -1 || 
+					players[i].is_alive == 0 ||
+					i == pid)
+				continue;
+
+			if (players[i].location == players[pid].location) {
+				snprintf(buf, sizeof(buf), "[%s] just walked into the room\n", players[pid].name);
+				write(players[i].fd, buf, strlen(buf));
+			}
+			if (players[i].location == old_location) {
+				snprintf(buf, sizeof(buf), "[%s] just left the room\n", players[pid].name);
+				write(players[i].fd, buf, strlen(buf));
+			}
+		}
 	}
 }
 
