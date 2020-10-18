@@ -161,6 +161,28 @@ const char descriptions[][256] = {
 	[LOC_NAVIGATION] = "You are all the way in the front of the ship in a room with the ship controls and a great view of space\n",
 };
 
+const char map[][100] = {
+	"|\\----------------|--------------|----------------|--------------\\\n",
+	"|                                                                 \\\n",
+	"| UPPER ENGINE                        CAFETERIA       WEAPONS      \\\n",
+	"|                 |-     --------|                |                 \\\n",
+	"|/--------|    |--|       MEDBAY |                |                  \\\n",
+	"          |    |                 |                |                   \\------\\\n",
+	"/---------|    |-------\\         |                |----------|        |       \\\n",
+	"|         |    |        \\        |---|     |------|          |                 |\n",
+	"|                        \\       |                |                            |\n",
+	"| REACTOR        SECURITY |      |  ADMIN OFFICE  |   O2           NAVIGATION  |\n",
+	"|                         |      |                |          |                 |\n",
+	"|         |    |          |      |---|     |----|-|----------|                 |\n",
+	"\\---------|    |----------|------|              |                     |       /\n",
+	"          |    |                 |                                    /------/\n",
+	"|\\--------|    |--|              |                                   /\n",
+	"|                 |              |              |--    --|          /\n",
+	"| LOWER ENGINE       ELECTRICAL       STORAGE   | COMMS  | SHIELDS /\n",
+	"|                                               |        |        /\n",
+	"|/----------------|--------------|--------------|--------|-------/\n",
+};
+
 struct player {
 	int fd;
 	enum player_stage stage;
@@ -722,6 +744,11 @@ adventure(int pid, char* input)
 		return;
 	} else if (strcmp(input, "help") == 0) {
 		snprintf(buf, sizeof(buf), "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
+	} else if (strncmp(input, "map", 3) == 0) {
+		for(int l=0;l<19;l++) {
+			write(players[pid].fd, map[l], strlen(map[l]));
+		}
+		snprintf(buf, sizeof(buf), "# ");
 	} else {
 		// check if it was a task
 		task_id = -1;
