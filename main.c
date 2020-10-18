@@ -955,7 +955,7 @@ handle_input(int fd)
 				return 0;
 			}
 			for(int i=0;i<strlen(buf);i++){
-				if(!isascii(buf[i])) {
+				if(!isascii(buf[i]) || buf[i] == 0x1b) {
 					snprintf(buf, sizeof(buf), "Invalid char, pick another name\n >");
 					write(fd, buf, strlen(buf));
 					return 0;
