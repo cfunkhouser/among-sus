@@ -293,7 +293,7 @@ end_game()
 	}
 }
 
-void
+int
 check_win_condition(void)
 {
 	char buf[100];
@@ -306,7 +306,7 @@ check_win_condition(void)
 		if (players[i].is_imposter == 1 && players[i].is_alive == 0) {
 			broadcast("The crew won", -1);
 			end_game();
-			return;
+			return 1;
 		}
 
 		if (players[i].fd != -1 &&
@@ -334,7 +334,7 @@ check_win_condition(void)
 	if (tasks == 1) {
 		broadcast("The crew won", -1);
 		end_game();
-		return;
+		return 1;
 	}
 
 	if (alive == 1) {
@@ -342,7 +342,9 @@ check_win_condition(void)
 		snprintf(buf, sizeof(buf), "The imposter was [%s] all along...", players[iid].name);
 		broadcast(buf, -1);
 		end_game();
+		return 1;
 	}
+	return 0;
 }
 
 void
@@ -614,8 +616,9 @@ check_votes:
 				broadcast(buf, -1);
 
 			}
-			check_win_condition();
-			back_to_playing();
+			if(!check_win_condition()) {
+				back_to_playing();
+			}
 			return;
 
 not_yet:
