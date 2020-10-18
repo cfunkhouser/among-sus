@@ -20,6 +20,8 @@
 #define NUM_SHORT 6
 #define NUM_LONG 2
 #define NUM_CHATS 50
+#define MIN_NAME 2
+#define MAX_NAME 10
 
 enum game_stage {
 	STAGE_LOBBY,
@@ -52,14 +54,14 @@ enum player_task_short {
 	TASK_LOWER_CATALYZER,
 	TASK_UPPER_COMPRESSION_COIL,
 	TASK_LOWER_COMPRESSION_COIL,
-	TASK_SHORT_COUNT
+	TASK_SHORT_COUNT,
 };
 
 const char short_task_descriptions[][45] = {
 	"Empty the cafeteria trash",
 	"Start the coffee maker in the cafeteria",
 	"Fix cafeteria wireing",
-	"Empty the storage trash shute",
+	"Empty the storage trash chute",
 	"Fix wiring in electrical",
 	"Reset breakers in electrical",
 	"Fix wiring in admin",
@@ -72,7 +74,7 @@ const char short_task_descriptions[][45] = {
 	"Check catalyzer in upper engine",
 	"Check catalyzer in lower engine",
 	"Replace compression coil in upper engine",
-	"Replace compression coil in lower engine"
+	"Replace compression coil in lower engine",
 };
 
 enum player_task_long {
@@ -105,30 +107,64 @@ enum player_location {
 	LOC_WEAPONS,
 	LOC_SHIELDS,
 	LOC_NAVIGATION,
+	LOC_COUNT,
 };
 
 const char locations[][45] = {
-	"cafeteria",
-	"reactor",
-	"upper",
-	"lower",
-	"security",
-	"medbay",
-	"electrical",
-	"storage",
-	"admin",
-	"communications",
-	"o2",
-	"weapons",
-	"shields",
-	"navigation"
+	[LOC_CAFETERIA] = "cafeteria",
+	[LOC_REACTOR] = "reactor",
+	[LOC_UPPER_ENGINE] = "upper",
+	[LOC_LOWER_ENGINE] = "lower",
+	[LOC_SECURITY] = "security",
+	[LOC_MEDBAY] = "medbay",
+	[LOC_ELECTRICAL] = "electrical",
+	[LOC_STORAGE] = "storage",
+	[LOC_ADMIN] = "admin",
+	[LOC_COMMUNICATIONS] = "communications",
+	[LOC_O2] = "o2",
+	[LOC_WEAPONS] = "weapons",
+	[LOC_SHIELDS] = "shields",
+	[LOC_NAVIGATION] = "navigation",
+};
+
+enum player_location doors[][10] = {
+	[LOC_CAFETERIA] = { LOC_MEDBAY, LOC_ADMIN, LOC_WEAPONS, -1 },
+	[LOC_REACTOR] = { LOC_UPPER_ENGINE, LOC_SECURITY, LOC_LOWER_ENGINE, -1 },
+	[LOC_UPPER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, -1 },
+	[LOC_LOWER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, -1 },
+	[LOC_SECURITY] = { LOC_UPPER_ENGINE, LOC_REACTOR, LOC_LOWER_ENGINE, -1 },
+	[LOC_MEDBAY] = { LOC_UPPER_ENGINE, LOC_CAFETERIA, -1 },
+	[LOC_ELECTRICAL] = { LOC_LOWER_ENGINE, LOC_STORAGE, -1 },
+	[LOC_STORAGE] = { LOC_ELECTRICAL, LOC_ADMIN, LOC_COMMUNICATIONS, -1 },
+	[LOC_ADMIN] = { LOC_CAFETERIA, LOC_STORAGE, -1 },
+	[LOC_COMMUNICATIONS] = { LOC_STORAGE, LOC_SHIELDS, -1 },
+	[LOC_O2] = { LOC_SHIELDS, LOC_WEAPONS, LOC_NAVIGATION, -1 },
+	[LOC_WEAPONS] = { LOC_CAFETERIA, LOC_O2, LOC_NAVIGATION, -1 },
+	[LOC_SHIELDS] = { LOC_STORAGE, LOC_O2, LOC_NAVIGATION, -1 },
+	[LOC_NAVIGATION] = { LOC_WEAPONS, LOC_O2, LOC_SHIELDS, -1 },
+};
+
+const char descriptions[][256] = {
+	[LOC_CAFETERIA] = "You are standing in the middle of the cafeteria, in the center there's an emergency button\n",
+	[LOC_REACTOR] = "You are in the reactor room, it seems to be running normally\n",
+	[LOC_UPPER_ENGINE] = "You are in a small room, mostly filled up by an engine.\n",
+	[LOC_LOWER_ENGINE] = "You are in a small room, mostly filled up by an engine.\n",
+	[LOC_SECURITY] = "You are in a small room filled with monitors, the monitors are displaying camera images showing an overview of the ship\n",
+	[LOC_MEDBAY] = "You are in a room with beds and a medical scanner.\n",
+	[LOC_ELECTRICAL] = "You are in a room filled with equipment racks. Some of them have wires sticking out of them\n",
+	[LOC_STORAGE] = "You are in a large room filled with boxes. One of the walls has a large door to the outside\n",
+	[LOC_ADMIN] = "You are in a nice carpeted room with a holographic map in the middle\n",
+	[LOC_COMMUNICATIONS] = "You are in a small room with what looks like radio equipment\n",
+	[LOC_O2] = "You are in a room with plants in terrariums and life support equipment\n",
+	[LOC_WEAPONS] = "You are in a circular room with a targeting system in the middle and a view of outer space\n",
+	[LOC_SHIELDS] = "You are in a circular room with glowing tubes and a control panel for the shields\n",
+	[LOC_NAVIGATION] = "You are all the way in the front of the ship in a room with the ship controls and a great view of space\n",
 };
 
 struct player {
 	int fd;
-	struct sockaddr_in *addr;
 	enum player_stage stage;
-	char name[20];
+	char name[MAX_NAME + 1];
 	int is_admin;
 	int is_imposter;
 	enum player_location location;
@@ -153,7 +189,7 @@ struct gamestate {
 };
 
 struct gamestate state;
-struct player *players;
+struct player players[NUM_PLAYERS];
 
 
 void
@@ -164,24 +200,15 @@ broadcast(char* message, int notfd)
 
 	printf("*> %s\n", message);
 
-	sprintf(buf, "%s\n", message);
+	snprintf(buf, sizeof(buf), "%s\n", message);
 
 	for (pid = 0; pid < NUM_PLAYERS; pid++) {
-		if (players[pid].fd == -1)
-			continue;
-		if (players[pid].fd == notfd)
-			continue;
-		if (players[pid].stage == PLAYER_STAGE_NAME)
+		if (players[pid].fd == -1 || players[pid].fd == notfd
+				|| players[pid].stage == PLAYER_STAGE_NAME)
 			continue;
 
 		write(players[pid].fd, buf, strlen(buf));
 	}
-}
-
-int
-startswith(const char *str, const char *prefix)
-{
-	return strncmp(prefix, str, strlen(prefix)) == 0;
 }
 
 void
@@ -194,19 +221,48 @@ player_move(int pid, enum player_location location)
 
 	// body detection
 	for(int i=0; i<NUM_PLAYERS;i++) {
-		if (i == pid)
+		if (players[i].location != players[pid].location || i == pid
+				|| players[i].fd == -1
+				|| players[i].is_alive == 1)
 			continue;
+
+		snprintf(buf, sizeof(buf), "you enter the room and see the body of [%s] laying on the floor\n", players[i].name);
+		write(players[pid].fd, buf, strlen(buf));
+	}
+}
+
+void
+end_game()
+{
+	broadcast("------------------------", -1);
+	broadcast("The game has ended, returning to lobby", -1);
+	state.stage = STAGE_LOBBY;
+
+	for(int i=0; i<NUM_PLAYERS;i++) {
 		if (players[i].fd == -1)
 			continue;
+		players[i].stage = PLAYER_STAGE_LOBBY;
+	}
+}
 
-		if (players[i].location != players[pid].location)
-			continue;
+// TODO: check if crew has won by completing tasks
+void
+check_win_condition(void)
+{
+	int alive = 0;
+	for(int i=0; i<NUM_PLAYERS;i++) {
+		if (players[i].is_imposter == 1 && players[i].is_alive == 0) {
+			broadcast("The crew won", -1);
+			end_game();
+			return;
+		}
+		if (players[i].fd != -1 && players[i].is_alive == 0)
+			alive++;
+	}
 
-		if (players[i].is_alive == 1)
-			continue;
-
-		sprintf(buf, "you enter the room and see the body of [%s] laying on the floor\n", players[i].name);
-		write(players[pid].fd, buf, strlen(buf));
+	if (alive == 1) {
+		broadcast("The imposter won", -1);
+		end_game();
 	}
 }
 
@@ -228,25 +284,25 @@ task_completed(int pid, int task_id, int long_task)
 		}
 	}
 
-	// Check win condition
-	
+	check_win_condition();
 }
 
 void
 player_list_tasks(int pid)
 {
 	char buf[100];
-	char cm[2];
 
 	for(int i=0;i<TASK_SHORT_COUNT;i++){
 		for(int j=0;j<NUM_SHORT;j++) {
 			if(players[pid].short_tasks[j] == i) {
+				const char *cm;
 				if(players[pid].short_tasks_done[j]) {
-					sprintf(cm, "*");
+					cm = "*";
 				} else {
-					sprintf(cm, " ");
+					cm = " ";
 				}
-				sprintf(buf, " [%s] %s\n", cm, short_task_descriptions[i]);
+				snprintf(buf, sizeof(buf), " [%s] %s\n", cm,
+					short_task_descriptions[i]);
 				write(players[pid].fd, buf, strlen(buf));
 			}
 		}
@@ -254,41 +310,29 @@ player_list_tasks(int pid)
 	for(int i=0;i<TASK_LONG_COUNT;i++){
 		for(int j=0;j<NUM_LONG;j++) {
 			if(players[pid].long_tasks[j] == i) {
+				const char *cm;
 				if(players[pid].long_tasks_done[j]) {
-					sprintf(cm, "*");
+					cm = "*";
 				} else {
-					sprintf(cm, " ");
+					cm = " ";
 				}
-				sprintf(buf, " [%s] %s\n", cm, long_task_descriptions[i]);
+				snprintf(buf, sizeof(buf), " [%s] %s\n", cm,
+					long_task_descriptions[i]);
 				write(players[pid].fd, buf, strlen(buf));
 			}
 		}
 	}
-	sprintf(buf, "# ");
+	snprintf(buf, sizeof(buf), "# ");
 	write(players[pid].fd, buf, strlen(buf));
-}
-
-void
-end_game()
-{
-	broadcast("------------------------", -1);
-	broadcast("The game has ended, returning to lobby", -1);
-	state.stage = STAGE_LOBBY;
-
-	for(int i=0; i<NUM_PLAYERS;i++) {
-		if (players[i].fd == -1)
-			continue;
-		players[i].stage = PLAYER_STAGE_LOBBY;
-	}
 }
 
 void
 player_kill(int pid, int tid)
 {
 	char buf[100];
-	int crew_alive = 0;
 
-	if(players[pid].location != players[tid].location)
+	if(players[pid].location != players[tid].location
+			|| players[pid].is_imposter)
 		return;
 
 	// so sad
@@ -298,32 +342,22 @@ player_kill(int pid, int tid)
 	players[pid].has_cooldown = 1;
 	
 	// notify player of their recent death
-	sprintf(buf, "It turns out %s is the imposter, sadly the way you know is that you died.\n", players[pid].name);
+	snprintf(buf, sizeof(buf), "It turns out %s is the imposter, sadly the way you know is that you died.\n",
+		players[pid].name);
 	write(players[tid].fd, buf, strlen(buf));
 
 	// notify bystanders
 	for(int i=0; i<NUM_PLAYERS;i++) {
-		if (i == pid)
-			continue;
-		if (players[i].fd == -1)
-			continue;
-		if (players[i].is_alive == 0)
+		if (i == pid || players[i].fd == -1 || players[i].is_alive == 0
+				|| players[i].location != players[pid].location)
 			continue;
 
-		crew_alive++;
-
-		if (players[i].location != players[pid].location)
-			continue;
-
-		sprintf(buf, "someone killed [%s] while you were in the room\n", players[tid].name);
+		snprintf(buf, sizeof(buf), "someone killed [%s] while you were in the room\n",
+			players[tid].name);
 		write(players[i].fd, buf, strlen(buf));
 	}
-
-	// Check win condition
-	if(crew_alive == 1) {
-		broadcast("The imposter won", -1);
-		end_game();
-	}
+	
+	check_win_condition();
 }
 
 void
@@ -339,15 +373,17 @@ start_discussion(int pid, int bid)
 			continue;
 
 		players[i].stage = PLAYER_STAGE_DISCUSS;
+		players[i].voted = 0;
+		players[i].votes = 0;
 	}
 	broadcast("------------------------", -1);
 	// Inform everyone
 	if(bid == -1) {
 		// Emergency button was pressed
-		sprintf(buf, "\nAn emergency meeting was called by [%s]", players[pid].name);
+		snprintf(buf, sizeof(buf), "\nAn emergency meeting was called by [%s]", players[pid].name);
 	} else {
 		// Body was reported
-		sprintf(buf, "\nThe body of [%s] was found by [%s]", players[bid].name, players[pid].name);
+		snprintf(buf, sizeof(buf), "\nThe body of [%s] was found by [%s]", players[bid].name, players[pid].name);
 	}
 	broadcast(buf, -1);
 
@@ -357,15 +393,15 @@ start_discussion(int pid, int bid)
 		if (players[i].fd == -1)
 			continue;
 		if (players[i].is_alive) {
-			sprintf(buf, "* %d [%s]", i, players[i].name);
+			snprintf(buf, sizeof(buf), "* %d [%s]", i, players[i].name);
 		} else {
-			sprintf(buf, "* %d [%s] (dead)", i, players[i].name);
+			snprintf(buf, sizeof(buf), "* %d [%s] (dead)", i, players[i].name);
 		}
 		broadcast(buf, -1);
 	}
 
 	// Inform people of the chat limit
-	sprintf(buf, "Discuss, there are %d messages left", NUM_CHATS);
+	snprintf(buf, sizeof(buf), "Discuss, there are %d messages left", NUM_CHATS);
 	state.chats_left = NUM_CHATS;
 	broadcast(buf, -1);
 }
@@ -384,43 +420,37 @@ back_to_playing()
 	broadcast("-- Voting has ended, back to the ship --\n\n# ", -1);
 }
 
-int
-strtoint(const char *nptr, char **endptr, int base)
-{
-	long x = strtol(nptr, endptr, base);
-	assert(x <= INT_MAX);
-	return (int) x;
-}
-
 void
 discussion(int pid, char* input)
 {
 	char buf[300];
-	int vote;
-	int max_votes;
-	int tie;
-	int winner;
-	int crew_alive;
+	int vote = 0, max_votes = 0, tie = 0, winner = 0, crew_alive = 0;
 	char temp[5];
 
 	// TODO: implement broadcast to dead players
 	if (players[pid].is_alive == 0)
 		return;
 
-	if (input[0] == '/') {
-		if (startswith(input, "/vote ") || startswith(input, "/yeet")) {
+	if (input[0] == '/' && input[1] != '/') {
+		if (strncmp(input, "/vote ", 6) == 0) {
 			if (players[pid].voted) {
-				sprintf(buf, "You can only vote once\n");
+				snprintf(buf, sizeof(buf), "You can only vote once\n");
 				write(players[pid].fd, buf, strlen(buf));
 				return;
 			}
+			char *endptr = NULL;
 			strncpy(temp, &input[6], 4);
 			printf("Decoding '%s' now\n", temp);
-			vote = strtoint(temp, NULL, 10);
+			vote = strtol(temp, &endptr, 10);
+			if (!endptr || endptr[0] != '\0') {
+				snprintf(buf, sizeof(buf), "Invalid vote, not an integer\n");
+				write(players[pid].fd, buf, strlen(buf));
+				return;
+			}
 
 			printf("[%s] voted for %d\n", players[pid].name, vote);
 			if(vote < 0 || vote > NUM_PLAYERS-1 || players[vote].fd == -1) {
-				sprintf(buf, "Invalid vote, no such player\n");
+				snprintf(buf, sizeof(buf), "Invalid vote, no such player\n");
 				write(players[pid].fd, buf, strlen(buf));
 				return;
 			}
@@ -456,12 +486,14 @@ discussion(int pid, char* input)
 				}
 			}
 
+			printf("%d\n", winner);
+
 			if (tie) {
 				broadcast("The voting ended in a tie", -1);
 				back_to_playing();
 				return;
 			} else {
-				sprintf(buf, "The crew voted to eject [%s]\n", players[winner].name);
+				snprintf(buf, sizeof(buf), "The crew voted to eject [%s]\n", players[winner].name);
 				broadcast(buf, -1);
 			}
 
@@ -471,49 +503,40 @@ discussion(int pid, char* input)
 				broadcast(".", -1);
 			}
 
+			players[winner].is_alive = 0;
 			if (players[winner].is_imposter) {
-				sprintf(buf, "It turns out [%s] was an imposter", players[winner].name);
+				snprintf(buf, sizeof(buf), "It turns out [%s] was an imposter", players[winner].name);
 				broadcast(buf, -1);
-				broadcast("It crew wins!", -1);
-				end_game();
-				return;
 			} else {
-				sprintf(buf, "Sadly [%s] was not an imposter", players[winner].name);
+				snprintf(buf, sizeof(buf), "Sadly, [%s] was not an imposter", players[winner].name);
 				broadcast(buf, -1);
-				players[winner].is_alive = 0;
 
-				// count alive crew
-				for(int i=0; i<NUM_PLAYERS;i++) {
-					if (players[i].fd == -1)
-						continue;
-					if (players[i].is_alive == 0)
-						continue;
-
-					if (players[i].is_imposter)
-						continue;
-
-					crew_alive++;
-				}
-
-				// Check win condition
-				if(crew_alive == 1) {
-					broadcast("The imposter won", -1);
-				} else {
-					back_to_playing();
-					return;
-				}
 			}
+			check_win_condition();
+			return;
 
 not_yet:
 			broadcast("A vote has been cast", -1);
+		} else {
+			snprintf(buf, sizeof(buf), "Invalid command\n");
+			write(players[pid].fd, buf, strlen(buf));
 		}
-	} else {
+	} else if (input[0] == '/') {
 		if (state.chats_left == 0) {
-			sprintf(buf, "No chats left, you can only vote now\n");
+			snprintf(buf, sizeof(buf), "No chats left, you can only vote now\n");
 			write(players[pid].fd, buf, strlen(buf));
 			return;
 		}
-		sprintf(buf, "(%d) [%s] %s", state.chats_left, players[pid].name, input);
+		snprintf(buf, sizeof(buf), "(%d) [%s] %s", state.chats_left, players[pid].name, &input[1]);
+		broadcast(buf, -1);
+		state.chats_left--;
+	} else {
+		if (state.chats_left == 0) {
+			snprintf(buf, sizeof(buf), "No chats left, you can only vote now\n");
+			write(players[pid].fd, buf, strlen(buf));
+			return;
+		}
+		snprintf(buf, sizeof(buf), "(%d) [%s] %s", state.chats_left, players[pid].name, input);
 		broadcast(buf, -1);
 		state.chats_left--;
 	}
@@ -523,217 +546,103 @@ void
 adventure(int pid, char* input)
 {
 	char buf[1024];
-	char location[160];
-	char doors[100];
-	char other[100];
+	const char *location;
 	int task_id;
 	int task_is_long;
 
-	if (strncmp(input, "examine room", 12) == 0 || strncmp(input, "e", 2) == 0) {
-		switch(players[pid].location) {
-			case LOC_CAFETERIA:
-				sprintf(location, "You are standing in the middle of the cafeteria, in the center there's an emergency button\n");
-				sprintf(doors, "you can move to: medbay, admin, weapons\n");
-				break;
-			case LOC_REACTOR:
-				if (state.is_reactor_meltdown) {
-					sprintf(location, "You are in the reactor room, there are red warning lights on and a siren is going off.\n");
-				} else {
-					sprintf(location, "You are in the reactor room, it seems to be running normally\n");
-				}
-				sprintf(doors, "you can move to: upper engine, security, lower engine\n");
-				break;
-			case LOC_UPPER_ENGINE:
-			case LOC_LOWER_ENGINE:
-				sprintf(location, "You are in a small room, mostly filled up by an engine.\n");
-				sprintf(doors, "you can move to: reactor, electrical\n");
-				break;
-			case LOC_SECURITY:
-				sprintf(location, "You are in a small room filled with monitors, the monitors are showing camera images showing an overview of the ship\n");
-				sprintf(doors, "you can move to: upper engine, reactor, lower engine\n");
-				break;
-			case LOC_MEDBAY:
-				sprintf(location, "You are in a room with beds and a medical scanner.\n");
-				sprintf(doors, "you can move to: upper engine, cafeteria\n");
-				break;
-			case LOC_ELECTRICAL:
-				sprintf(location, "You are in a room filled with equipment racks. Some of them have wires sticking out of them\n");
-				sprintf(doors, "you can move to: lower engine, storage\n");
-				break;
-			case LOC_STORAGE:
-				sprintf(location, "You are in a large room filled with boxes. One of the walls has a large door to the outside\n");
-				sprintf(doors, "you can move to: electrical, admin, comms\n");
-				break;
-			case LOC_ADMIN:
-				sprintf(location, "You are in a nice carpeted room with a holographic map in the middle\n");
-				sprintf(doors, "you can move to: cafe, storage\n");
-				break;
-			case LOC_COMMUNICATIONS:
-				sprintf(location, "You are in a small room with what looks like radio equipment\n");
-				sprintf(doors, "you can move to: storage, shields\n");
-				break;
-			case LOC_O2:
-				sprintf(location, "You are in a room with plants in terrariums and life support equipment\n");
-				sprintf(doors, "you can move to: shields, weapons, navigation\n");
-				break;
-			case LOC_WEAPONS:
-				sprintf(location, "You are in a circular room with a targeting system in the middle and a view of outer space\n");
-				sprintf(doors, "you can move to: cafe, o2, navigation\n");
-				break;
-			case LOC_SHIELDS:
-				sprintf(location, "You are in a circular room with glowing tubes and a control panel for the shields\n");
-				sprintf(doors, "you can move to: storage, o2, navigation\n");
-				break;
-			case LOC_NAVIGATION:
-				sprintf(location, "You are all the way in the front of the ship in a room with the ship controls and a great view of space\n");
-				sprintf(doors, "you can move to: weapons, o2, shields\n");
-				break;
+	if (input[0] == 'e') {
+		enum player_location loc = players[pid].location;
+		strcpy(buf, "you can move to: ");
+		assert(doors[loc][0] != -1);
+		strncat(buf, locations[doors[loc][0]], sizeof(buf) - 1);
+		for (size_t i = 1; doors[loc][i] != -1; i++) {
+			strncat(strncat(buf, ", ", sizeof(buf) - 1),
+				locations[doors[loc][i]], sizeof(buf) - 1);
+		}
+		strncat(buf, "\n", sizeof(buf) - 1);
+		location = descriptions[loc];
+		if (loc == LOC_REACTOR && state.is_reactor_meltdown) {
+			location = "You are in the reactor room, there are red warning lights on and a siren is going off.\n";
 		}
 		write(players[pid].fd, location, strlen(location));
-		write(players[pid].fd, doors, strlen(doors));
+		write(players[pid].fd, buf, strlen(buf));
 		for(int i=0; i<NUM_PLAYERS;i++) {
-			if (i == pid)
+			if (players[i].location != players[pid].location
+					|| players[i].fd == -1 || i == pid)
 				continue;
 
-			if (players[i].fd == -1)
-				continue;
-
-			if (players[i].location != players[pid].location)
-				continue;
-
-			sprintf(other, "you also see %s in the room with you\n", players[i].name);
-			write(players[pid].fd, other, strlen(other));
+			snprintf(buf, sizeof(buf),
+					"you also see %s in the room with you\n",
+					players[i].name);
+			write(players[pid].fd, buf, strlen(buf));
 		}
-		sprintf(buf, "# ");
-	} else if (startswith(input, "go ")) {
-		sprintf(buf, "\n# ");
-		if (startswith(input, "go cafe")) {
-			if (players[pid].location == LOC_MEDBAY ||
-					players[pid].location == LOC_WEAPONS ||
-					players[pid].location == LOC_ADMIN)
-				player_move(pid, LOC_CAFETERIA);
-		} else if (startswith(input, "go react")) {
-			if (players[pid].location == LOC_SECURITY ||
-					players[pid].location == LOC_UPPER_ENGINE ||
-					players[pid].location == LOC_LOWER_ENGINE)
-				player_move(pid, LOC_REACTOR);
-		} else if (startswith(input, "go upper")) {
-			if (players[pid].location == LOC_MEDBAY ||
-					players[pid].location == LOC_SECURITY ||
-					players[pid].location == LOC_REACTOR)
-				player_move(pid, LOC_UPPER_ENGINE);
-		} else if (startswith(input, "go lower")) {
-			if (players[pid].location == LOC_ELECTRICAL ||
-					players[pid].location == LOC_SECURITY ||
-					players[pid].location == LOC_REACTOR)
-				player_move(pid, LOC_LOWER_ENGINE);
-		} else if (startswith(input, "go security")) {
-			if (players[pid].location == LOC_REACTOR ||
-					players[pid].location == LOC_LOWER_ENGINE ||
-					players[pid].location == LOC_UPPER_ENGINE)
-				player_move(pid, LOC_SECURITY);
-		} else if (startswith(input, "go medbay")) {
-			if (players[pid].location == LOC_UPPER_ENGINE ||
-					players[pid].location == LOC_CAFETERIA)
-				player_move(pid, LOC_MEDBAY);
-		} else if (startswith(input, "go electrical")) {
-			if (players[pid].location == LOC_LOWER_ENGINE ||
-					players[pid].location == LOC_STORAGE)
-				player_move(pid, LOC_ELECTRICAL);
-		} else if (startswith(input, "go storage")) {
-			if (players[pid].location == LOC_ELECTRICAL ||
-					players[pid].location == LOC_ADMIN ||
-					players[pid].location == LOC_CAFETERIA ||
-					players[pid].location == LOC_SHIELDS ||
-					players[pid].location == LOC_COMMUNICATIONS)
-				player_move(pid, LOC_STORAGE);
-		} else if (startswith(input, "go admin")) {
-			if (players[pid].location == LOC_CAFETERIA ||
-					players[pid].location == LOC_STORAGE)
-				player_move(pid, LOC_ADMIN);
-		} else if (startswith(input, "go comm")) {
-			if (players[pid].location == LOC_STORAGE ||
-					players[pid].location == LOC_SHIELDS)
-				player_move(pid, LOC_COMMUNICATIONS);
-		} else if (startswith(input, "go o2")) {
-			if (players[pid].location == LOC_WEAPONS ||
-					players[pid].location == LOC_SHIELDS ||
-					players[pid].location == LOC_NAVIGATION)
-				player_move(pid, LOC_O2);
-		} else if (startswith(input, "go weapon")) {
-			if (players[pid].location == LOC_CAFETERIA ||
-					players[pid].location == LOC_O2 ||
-					players[pid].location == LOC_NAVIGATION)
-				player_move(pid, LOC_WEAPONS);
-		} else if (startswith(input, "go shield")) {
-			if (players[pid].location == LOC_COMMUNICATIONS ||
-					players[pid].location == LOC_O2 ||
-					players[pid].location == LOC_NAVIGATION)
-				player_move(pid, LOC_SHIELDS);
-		} else if (startswith(input, "go nav")) {
-			if (players[pid].location == LOC_WEAPONS ||
-					players[pid].location == LOC_O2 ||
-					players[pid].location == LOC_SHIELDS)
-				player_move(pid, LOC_NAVIGATION);
-		} else {	
-			sprintf(buf, "INVALID MOVEMENT\n# ");
+		snprintf(buf, sizeof(buf), "# ");
+	} else if (strncmp(input, "go ", 3) == 0) {
+		enum player_location new;
+		for (new = 0; new < LOC_COUNT; new++) {
+			if (strcmp(locations[new], &input[3]) == 0) {
+				break;
+			}
 		}
-	} else if (startswith(input, "murder crewmate")) {
+		if (new == LOC_COUNT) {
+			snprintf(buf, sizeof(buf), "INVALID MOVEMENT\n# ");
+		} else {
+			for (size_t i = 0; doors[players[pid].location][i] != -1; i++) {
+				if (doors[players[pid].location][i] == new) {
+					player_move(pid, new);
+					snprintf(buf, sizeof(buf),
+						"successfully moved\n# ");
+					new = LOC_COUNT;
+					break;
+				}
+			}
+			if (new != LOC_COUNT) {
+				snprintf(buf, sizeof(buf), "INVALID MOVEMENT\n# ");
+			}
+		}
+	} else if (strcmp(input, "murder crewmate") == 0) {
 		if (players[pid].is_imposter == 0) {
-			sprintf(buf, "you might dislike him, but you can't kill him without weapon\n# ");
+			snprintf(buf, sizeof(buf), "you might dislike them, but you can't kill them without weapon\n# ");
 		} else if (players[pid].has_cooldown) {
-			sprintf(buf, "you can't kill that quickly\n# ");
+			snprintf(buf, sizeof(buf), "you can't kill that quickly\n# ");
 		} else {
 			for(int i=0; i<NUM_PLAYERS;i++) {
-				if (i == pid)
-					continue;
-
-				if (players[i].fd == -1)
-					continue;
-
-				if (players[i].location != players[pid].location)
-					continue;
-
-				if (players[i].is_alive == 0)
+				if (players[i].location != players[pid].location
+						|| i == pid || players[i].fd == -1
+						|| players[i].is_alive == 0)
 					continue;
 
 				// TODO: kill more randomly
 				player_kill(pid, i);
-				sprintf(buf, "you draw your weapon and brutally murder %s\n# ", players[i].name);
+				snprintf(buf, sizeof(buf), "you draw your weapon and brutally murder %s\n# ",
+					players[i].name);
 				break;
 			}
 		}
-	} else if (startswith(input, "report")) {
+	} else if (strcmp(input, "report") == 0) {
 		for(int i=0; i<NUM_PLAYERS;i++) {
-			if (i == pid)
-				continue;
-
-			if (players[i].fd == -1)
-				continue;
-
-			if (players[i].location != players[pid].location)
-				continue;
-
-			if (players[i].is_alive == 1)
+			if (players[i].location != players[pid].location
+					|| i == pid || players[i].fd == -1
+					|| players[i].is_alive == 1)
 				continue;
 
 			start_discussion(pid, i);
 			return;
 		}
 
-		sprintf(buf, "Nothing to report here\n# ");
-	} else if (startswith(input, "press emergency button")) {
+		snprintf(buf, sizeof(buf), "Nothing to report here\n# ");
+	} else if (strcmp(input, "press emergency button") == 0) {
 		if (players[pid].location != LOC_CAFETERIA) {
-			sprintf(buf, "You can't do that here");
+			snprintf(buf, sizeof(buf), "You can't do that here");
 		} else {
 			start_discussion(pid, -1);
 			return;
 		}
-	} else if (startswith(input, "check tasks")) {
+	} else if (strcmp(input, "check tasks") == 0) {
 		player_list_tasks(pid);
 		return;
-	} else if (strncmp(input, "help", 4) == 0) {
-		sprintf(buf, "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
+	} else if (strcmp(input, "help") == 0) {
+		snprintf(buf, sizeof(buf), "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
 	} else {
 		// check if it was a task
 		task_id = -1;
@@ -752,14 +661,14 @@ adventure(int pid, char* input)
 			}
 		}
 		if (task_id == -1) {
-			sprintf(buf, "Invalid instruction\n# ");
+			snprintf(buf, sizeof(buf), "Invalid instruction\n# ");
 		} else {
 			// check it was in the right room
 			if (strstr(input, locations[players[pid].location]) != NULL) {
 				task_completed(pid, task_id, task_is_long);
-				sprintf(buf, "Completed task\n# ");
+				snprintf(buf, sizeof(buf), "Completed task\n# ");
 			} else {
-				sprintf(buf, "You're in the wrong place for that\n# ");
+				snprintf(buf, sizeof(buf), "You're in the wrong place for that\n# ");
 			}
 		}
 	}
@@ -796,7 +705,7 @@ start_game()
 
 		// Assign NUM_SHORT random short tasks
 		for(int j=0;j<NUM_SHORT;j++) {
-retry:			
+retry:
 			temp = rand() % TASK_SHORT_COUNT;
 			for(int k=0;k<NUM_SHORT;k++) {
 				if(players[i].short_tasks[k] == temp)
@@ -808,7 +717,7 @@ retry:
 
 		// Assign NUM_LONG random long tasks
 		for(int j=0;j<NUM_LONG;j++) {
-retry2:			
+retry2:
 			temp = rand() % TASK_LONG_COUNT;
 			for(int k=0;k<NUM_LONG;k++) {
 				if(players[i].long_tasks[k] == temp)
@@ -820,10 +729,10 @@ retry2:
 
 		if (assigned == imposternum) {
 			players[i].is_imposter = 1;
-			sprintf(buf, "You are the imposter, kill everyone without getting noticed.\n");
+			snprintf(buf, sizeof(buf), "You are the imposter, kill everyone without getting noticed.\n");
 		} else {
 			players[i].is_imposter = 0;
-			sprintf(buf, "You are a crewmate, complete your tasks before everyone is killed.\n");
+			snprintf(buf, sizeof(buf), "You are a crewmate, complete your tasks before everyone is killed.\n");
 		}
 		write(players[i].fd, buf, strlen(buf));
 		assigned++;
@@ -841,12 +750,12 @@ retry2:
 			continue;
 
 		if(players[i].is_imposter) {
-			sprintf(buf, "You are in a spaceship, the other %d crew members think you're on of them\n# ", assigned - 1);
+			snprintf(buf, sizeof(buf), "You are in a spaceship, the other %d crew members think you're on of them\n# ", assigned - 1);
 			write(players[i].fd, buf, strlen(buf));
 		} else {
-			sprintf(buf, "You are in a spaceship, one of the crew of %d people\n", assigned);
+			snprintf(buf, sizeof(buf), "You are in a spaceship, one of the crew of %d people\n", assigned);
 			write(players[i].fd, buf, strlen(buf));
-			sprintf(buf, "The tasks have been handed out and the daily routine is starting up, but there are rumors one of your fellow crewmates isn't a crewmate at all.\n# ");
+			snprintf(buf, sizeof(buf), "The tasks have been handed out and the daily routine is starting up, but there are rumors one of your fellow crewmates isn't a crewmate at all.\n# ");
 			write(players[i].fd, buf, strlen(buf));
 		}
 	}
@@ -878,7 +787,7 @@ handle_input(int fd)
 		printf("Received EOF from player %d\n", pid);
 		players[pid].fd = -1;
 		if (players[pid].stage != PLAYER_STAGE_NAME) {
-			sprintf(buf, "Player [%s] left the game.", players[pid].name);
+			snprintf(buf, sizeof(buf), "Player [%s] left the game.", players[pid].name);
 			printf("Sending parting message\n");
 			broadcast(buf, -1);
 		}
@@ -897,26 +806,26 @@ handle_input(int fd)
 	switch(players[pid].stage) {
 		case PLAYER_STAGE_NAME:
 			// Setting the name after connection and informing the lobby
-			if(strlen(buf) < 2) {
-				sprintf(buf, "Too short, pick another name\n >");
+			if(strlen(buf) < MIN_NAME) {
+				snprintf(buf, sizeof(buf), "Too short, pick another name\n >");
 				write(fd, buf, strlen(buf));
 				return 0;
 			}
-			if(strlen(buf) > 10) {
-				sprintf(buf, "Too long, pick another name\n >");
+			if(strlen(buf) > MAX_NAME) {
+				snprintf(buf, sizeof(buf), "Too long, pick another name\n >");
 				write(fd, buf, strlen(buf));
 				return 0;
 			}
 			for(int i=0;i<strlen(buf);i++){
 				if(!isascii(buf[i])) {
-					sprintf(buf, "Invalid char, pick another name\n >");
+					snprintf(buf, sizeof(buf), "Invalid char, pick another name\n >");
 					write(fd, buf, strlen(buf));
 					return 0;
 				}
 			}
 			strcpy(players[pid].name, buf);
 
-			sprintf(buf, "[%s] has joined the lobby", players[pid].name);
+			snprintf(buf, sizeof(buf), "[%s] has joined the lobby", players[pid].name);
 			broadcast(buf, fd);
 			players[pid].stage = PLAYER_STAGE_LOBBY;
 			break;
@@ -924,32 +833,32 @@ handle_input(int fd)
 		case PLAYER_STAGE_LOBBY:
 			// Chat message in the lobby
 			if (buf[0] == '/') {
-				if (strncmp(buf, "/start", 6) == 0) {
+				if (strcmp(buf, "/start") == 0) {
 					if(players[pid].is_admin) {
 						start_game();
 					} else {
-						sprintf(buf2, "You don't have permission to /start\n");
-						write(fd, buf2, strlen(buf2));
+						const char *msg = "You don't have permission to /start\n";
+						write(fd, msg, strlen(msg));
 					}
-				} else if (strncmp(buf, "/shrug", 6) == 0) {
-					sprintf(buf2, "[%s] ¯\\_(ツ)_/¯", players[pid].name);
+				} else if (strcmp(buf, "/shrug") == 0) {
+					snprintf(buf2, sizeof(buf2), "[%s] ¯\\_(ツ)_/¯", players[pid].name);
 					broadcast(buf2, fd);
-				} else if (strncmp(buf, "/me ", 3) == 0) {
-					sprintf(buf2, " * [%s] %s", players[pid].name, &buf[4]);
+				} else if (strncmp(buf, "/me ", 4) == 0) {
+					snprintf(buf2, sizeof(buf2), " * [%s] %s", players[pid].name, &buf[4]);
 					broadcast(buf2, fd);
-				} else if (strncmp(buf, "/help", 5) == 0) {
-					sprintf(buf, "Commands: /start, /list and more\n");
+				} else if (strcmp(buf, "/help") == 0) {
+					snprintf(buf, sizeof(buf), "Commands: /start, /list and more\n");
 					write(fd, buf, strlen(buf));
-				} else if (strncmp(buf, "/list", 5) == 0) {
+				} else if (strcmp(buf, "/list") == 0) {
 					for(int i=0;i<NUM_PLAYERS;i++){
 						if (players[i].fd == -1)
 							continue;
 						if (players[i].stage == PLAYER_STAGE_NAME) {
-							sprintf(buf, " %d: -[ setting name ]-\n", i);
+							snprintf(buf, sizeof(buf), " %d: -[ setting name ]-\n", i);
 						} else if (players[i].is_admin) {
-							sprintf(buf, " %d: %s (admin)\n", i, players[i].name);
+							snprintf(buf, sizeof(buf), " %d: %s (admin)\n", i, players[i].name);
 						} else {
-							sprintf(buf, " %d: %s\n", i, players[i].name);
+							snprintf(buf, sizeof(buf), " %d: %s\n", i, players[i].name);
 						}
 						write(fd, buf, strlen(buf));
 					}
@@ -960,7 +869,7 @@ handle_input(int fd)
 						buf[i] = '\0';
 					}
 				}
-				sprintf(buf2, "[%s]: %s", players[pid].name, buf);
+				snprintf(buf2, sizeof(buf2), "[%s]: %s", players[pid].name, buf);
 				broadcast(buf2, fd);
 			}
 			break;
@@ -978,13 +887,13 @@ handle_input(int fd)
 }
 
 int
-welcome_player(int fd, struct sockaddr_in addr)
+welcome_player(int fd)
 {
 	int i;
 	char buf[100];
 
 	if(state.stage != STAGE_LOBBY) {
-		sprintf(buf, "There is a game in progress, try again later\n");
+		snprintf(buf, sizeof(buf), "There is a game in progress, try again later\n");
 		write(fd, buf, strlen(buf));
 		close(fd);
 		return -1;
@@ -994,30 +903,25 @@ welcome_player(int fd, struct sockaddr_in addr)
 		if (players[i].fd > 0) {
 			continue;
 		}
-		// Bonus points for goto usage
-		goto found_spot;	
+		players[i].fd = fd;
+		if (!state.has_admin) {
+			state.has_admin = 1;
+			players[i].is_admin = 1;
+		}
+		players[i].stage = PLAYER_STAGE_NAME;
+		snprintf(buf, sizeof(buf), "Welcome player %d!\n\nEnter your name:\n> ", i);
+		write(fd, buf, strlen(buf));
+		printf("Assigned player to spot %d\n", i);
+		return 0;
 	}
-	sprintf(buf, "There are no spots available, goodbye!\n");
+	snprintf(buf, sizeof(buf), "There are no spots available, goodbye!\n");
 	write(fd, buf, strlen(buf));
 	close(fd);
 	return -1;
-
-found_spot:
-	printf("Assigned player to spot %d\n", i);
-	players[i].fd = fd;
-	players[i].addr = malloc(sizeof(addr));
-	if (!state.has_admin) {
-		state.has_admin = 1;
-		players[i].is_admin = 1;
-	}
-	players[i].stage = PLAYER_STAGE_NAME;
-	sprintf(buf, "Welcome player %d!\n\nEnter your name:\n> ", i);
-	write(fd, buf, strlen(buf));
-	return 0;
 }
 
 int
-main()
+main(void)
 {
 	int listen_fd;
 	int new_fd;
@@ -1026,8 +930,6 @@ main()
 	int port = 1234;
 	int i;
 	fd_set rfds, afds;
-
-	players = (struct player*)malloc(sizeof(struct player) * NUM_PLAYERS);
 
 	for (i = 0; i < NUM_PLAYERS; i++) {
 		players[i].fd = -1;
@@ -1041,7 +943,7 @@ main()
 	listen_addr.sin_port = htons(port);
 
 	if (bind(listen_fd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0) {
-		printf("bind failed\n");
+		perror("bind");
 		return -1;
 	}
 
@@ -1056,7 +958,7 @@ main()
 	while (1) {
 		rfds = afds;
 		if (select(FD_SETSIZE, &rfds, NULL, NULL, NULL) < 0) {
-			printf("select oops\n");
+			perror("select");
 			exit(EXIT_FAILURE);
 		}
 
@@ -1067,13 +969,13 @@ main()
 					client_size = sizeof(client_addr);
 					new_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &client_size);
 					if (new_fd < 0) {
-						printf("new client oops\n");
+						perror("accept");
 						exit(EXIT_FAILURE);
 					}
 
 					printf("New connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 					FD_SET(new_fd, &afds);
-					if(welcome_player(new_fd, client_addr)<0){
+					if(welcome_player(new_fd)<0){
 						FD_CLR(new_fd, &afds);
 					}
 				} else {
