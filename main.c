@@ -19,6 +19,7 @@
 #define NUM_PLAYERS 10
 #define NUM_SHORT 6
 #define NUM_LONG 2
+#define NUM_CHATS 50
 
 enum game_stage {
 	STAGE_LOBBY,
@@ -148,6 +149,7 @@ struct gamestate {
 	int has_admin;
 	int players;
 	int is_reactor_meltdown;
+	int chats_left;
 };
 
 struct gamestate state;
@@ -269,6 +271,7 @@ player_list_tasks(int pid)
 void
 end_game()
 {
+	broadcast("------------------------", -1);
 	broadcast("The game has ended, returning to lobby", -1);
 	state.stage = STAGE_LOBBY;
 
@@ -337,14 +340,14 @@ start_discussion(int pid, int bid)
 
 		players[i].stage = PLAYER_STAGE_DISCUSS;
 	}
-
+	broadcast("------------------------", -1);
 	// Inform everyone
 	if(bid == -1) {
 		// Emergency button was pressed
-		sprintf(buf, "\nAn emergency meeting was called by [%s], discuss", players[pid].name);
+		sprintf(buf, "\nAn emergency meeting was called by [%s]", players[pid].name);
 	} else {
 		// Body was reported
-		sprintf(buf, "\nThe body of [%s] was found by [%s], discuss", players[bid].name, players[pid].name);
+		sprintf(buf, "\nThe body of [%s] was found by [%s]", players[bid].name, players[pid].name);
 	}
 	broadcast(buf, -1);
 
@@ -360,6 +363,11 @@ start_discussion(int pid, int bid)
 		}
 		broadcast(buf, -1);
 	}
+
+	// Inform people of the chat limit
+	sprintf(buf, "Discuss, there are %d messages left", NUM_CHATS);
+	state.chats_left = NUM_CHATS;
+	broadcast(buf, -1);
 }
 
 void
@@ -500,8 +508,14 @@ not_yet:
 			broadcast("A vote has been cast", -1);
 		}
 	} else {
-		sprintf(buf, "[%s] %s", players[pid].name, input);
-		broadcast(buf, players[pid].fd);
+		if (state.chats_left == 0) {
+			sprintf(buf, "No chats left, you can only vote now\n");
+			write(players[pid].fd, buf, strlen(buf));
+			return;
+		}
+		sprintf(buf, "(%d) [%s] %s", state.chats_left, players[pid].name, input);
+		broadcast(buf, -1);
+		state.chats_left--;
 	}
 }
 
@@ -713,6 +727,7 @@ adventure(int pid, char* input)
 			sprintf(buf, "You can't do that here");
 		} else {
 			start_discussion(pid, -1);
+			return;
 		}
 	} else if (startswith(input, "check tasks")) {
 		player_list_tasks(pid);
@@ -831,7 +846,7 @@ retry2:
 		} else {
 			sprintf(buf, "You are in a spaceship, one of the crew of %d people\n", assigned);
 			write(players[i].fd, buf, strlen(buf));
-			sprintf(buf, "The tasks have been handed out and the daily routine is starting up, but there are rumors one of your fellow crewmates isn't a crewmate at all.\n #");
+			sprintf(buf, "The tasks have been handed out and the daily routine is starting up, but there are rumors one of your fellow crewmates isn't a crewmate at all.\n# ");
 			write(players[i].fd, buf, strlen(buf));
 		}
 	}
