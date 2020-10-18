@@ -925,6 +925,18 @@ retry2:
 	}
 }
 
+void reassign_admin() {
+	char buf[100];
+	for (int i= 0; i < NUM_PLAYERS; i++) {
+		if (players[i].fd == -1 || players[i].stage == PLAYER_STAGE_NAME)
+			continue;
+		players[i].is_admin = 1;
+		snprintf(buf, sizeof(buf), " ** Admin left, new admin is %s **\n", players[i].name);
+		broadcast(buf, -1);
+		return;
+	}
+}
+
 int
 handle_input(int fd)
 {
@@ -945,6 +957,16 @@ handle_input(int fd)
 	if (len < 0) {
 		printf("Read error from player %d\n", pid);
 		players[pid].fd = -1;
+		if (players[pid].stage != PLAYER_STAGE_NAME) {
+			snprintf(buf, sizeof(buf), "Player [%s] disconnected.", players[pid].name);
+			printf("Sending disconnection message\n");
+			broadcast(buf, -1);
+		}
+
+		if (players[pid].is_admin) {
+			reassign_admin();
+		}
+
 		return -1;
 	}
 	if (len == 0) {
@@ -955,6 +977,11 @@ handle_input(int fd)
 			printf("Sending parting message\n");
 			broadcast(buf, -1);
 		}
+
+		if (players[pid].is_admin) {
+			reassign_admin();
+		}
+
 		return -2;
 	}
 
