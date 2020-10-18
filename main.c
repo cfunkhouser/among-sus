@@ -693,9 +693,14 @@ adventure(int pid, char* input)
 					|| players[i].fd == -1 || i == pid)
 				continue;
 
-			snprintf(buf, sizeof(buf),
-					"you also see %s in the room with you\n",
-					players[i].name);
+			if (players[i].is_alive)
+				snprintf(buf, sizeof(buf),
+						"you also see %s in the room with you\n",
+						players[i].name);
+			else
+				snprintf(buf, sizeof(buf),
+						"you also see %s's corpse in the room with you\n",
+						players[i].name);
 			write(players[pid].fd, buf, strlen(buf));
 		}
 		snprintf(buf, sizeof(buf), "# ");
