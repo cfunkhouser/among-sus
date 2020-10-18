@@ -206,6 +206,15 @@ const char map[][100] = {
 	"|/----------------|--------------|--------------|--------|-------/\n",
 };
 
+enum player_state {
+	PLAYER_STATE_ALIVE,
+	PLAYER_STATE_VENT, // TODO: implement vents
+	PLAYER_STATE_DEAD,
+	PLAYER_STATE_FOUND,
+	PLAYER_STATE_EJECTED,
+	PLAYER_STATE_KICKED,
+};
+
 struct player {
 	int fd;
 	enum player_stage stage;
@@ -213,9 +222,7 @@ struct player {
 	int is_admin;
 	int is_imposter;
 	enum player_location location;
-	int in_vent;
-	int is_alive;
-	int is_found;
+	enum player_state state;
 	int has_cooldown;
 	int voted;
 	int votes;
@@ -276,6 +283,12 @@ broadcast(char* message, int notfd)
 	}
 }
 
+int
+alive(struct player player)
+{
+	return player.state == PLAYER_STATE_ALIVE || player.state == PLAYER_STATE_VENT;
+}
+
 void
 player_move(int pid, enum player_location location)
 {
@@ -290,8 +303,7 @@ player_move(int pid, enum player_location location)
 	for(int i=0; i<NUM_PLAYERS;i++) {
 		if (players[i].location != players[pid].location || i == pid
 				|| players[i].fd == -1
-				|| players[i].is_alive == 1
-				|| players[i].is_found == 1)
+				|| players[i].state != PLAYER_STATE_DEAD)
 			continue;
 
 		snprintf(buf, sizeof(buf), "you enter the room and see the body of [%s] laying on the floor\n", players[i].name);
@@ -301,9 +313,8 @@ player_move(int pid, enum player_location location)
 	// Notify players you're moving
 	if (MOVEMENT_NOTIFICATIONS) {
 		for (int i=0; i<NUM_PLAYERS;i++) {
-			if (players[i].fd == -1 || 
-					players[i].is_alive == 0 ||
-					i == pid)
+			if (players[i].fd == -1 || i == pid
+					|| !alive(players[i]))
 				continue;
 
 			if (players[i].location == players[pid].location) {
@@ -336,25 +347,25 @@ int
 check_win_condition(void)
 {
 	char buf[100];
-	int alive = 0, iid = -1, tasks = 1;
+	int nalive = 0, iid = -1, tasks = 1;
 
 	for (size_t i = 0; i < NUM_PLAYERS; i++) {
 		if (players[i].fd != -1 && players[i].is_imposter)
 			iid = i;
 
-		if (players[i].is_imposter == 1 && players[i].is_alive == 0) {
+		if (players[i].is_imposter == 1
+				&& !alive(players[i])) {
 			broadcast("The crew won", -1);
 			end_game();
 			return 1;
 		}
 
-		if (players[i].fd != -1 &&
-				players[i].is_alive == 1 &&
-				players[i].is_imposter == 0)
-			alive++;
+		if (players[i].fd != -1 && alive(players[i])
+				&& players[i].is_imposter == 0)
+			nalive++;
 
 		if (players[i].fd != -1 && !players[i].is_imposter
-				&& players[i].is_alive) {
+				&& alive(players[i])) {
 			for (size_t j = 0; j < NUM_SHORT; j++) {
 				if (!players[i].short_tasks_done[j]) {
 					tasks = 0;
@@ -376,7 +387,7 @@ check_win_condition(void)
 		return 1;
 	}
 
-	if (alive == 1) {
+	if (nalive == 1) {
 		broadcast("The imposter is alone with the last crewmate and murders him", -1);
 		snprintf(buf, sizeof(buf), "The imposter was [%s] all along...", players[iid].name);
 		broadcast(buf, -1);
@@ -462,7 +473,7 @@ player_kill(int pid, int tid)
 		return;
 
 	// so sad
-	players[tid].is_alive = 0;
+	players[tid].state = PLAYER_STATE_DEAD;
 
 	// less murdering, reset by movement
 	players[pid].has_cooldown = 1;
@@ -474,7 +485,7 @@ player_kill(int pid, int tid)
 
 	// notify bystanders
 	for(int i=0; i<NUM_PLAYERS;i++) {
-		if (i == pid || players[i].fd == -1 || players[i].is_alive == 0
+		if (i == pid || players[i].fd == -1 || !alive(players[i])
 				|| players[i].location != players[pid].location)
 			continue;
 
@@ -502,9 +513,6 @@ start_discussion(int pid, int bid)
 		players[i].stage = PLAYER_STAGE_DISCUSS;
 		players[i].voted = 0;
 		players[i].votes = 0;
-
-		if (!players[i].is_alive)
-			players[i].is_found = 1;
 	}
 	broadcast("------------------------", -1);
 	// Inform everyone
@@ -514,6 +522,7 @@ start_discussion(int pid, int bid)
 	} else {
 		// Body was reported
 		snprintf(buf, sizeof(buf), "\nThe body of [%s] was found by [%s]", players[bid].name, players[pid].name);
+		players[bid].state = PLAYER_STATE_FOUND;
 	}
 	broadcast(buf, -1);
 
@@ -522,10 +531,18 @@ start_discussion(int pid, int bid)
 	for(int i=0; i<NUM_PLAYERS;i++) {
 		if (players[i].fd == -1)
 			continue;
-		if (players[i].is_alive) {
+		switch (players[i].state) {
+		case PLAYER_STATE_ALIVE:
 			snprintf(buf, sizeof(buf), "* %d [%s]", i, players[i].name);
-		} else {
+			break;
+		case PLAYER_STATE_DEAD:
 			snprintf(buf, sizeof(buf), "* %d [%s] (dead)", i, players[i].name);
+			break;
+		case PLAYER_STATE_FOUND:
+			snprintf(buf, sizeof(buf), "* %d [%s] (dead, reported)", i, players[i].name);
+			break;
+		default:
+			continue;
 		}
 		broadcast(buf, -1);
 	}
@@ -559,11 +576,13 @@ discussion(int pid, char* input)
 	char temp[5];
 
 	// TODO: implement broadcast to dead players
-	if (players[pid].is_alive == 0)
+	if (!alive(players[pid]))
 		return;
 
 	if (input[0] == '/' && input[1] != '/') {
-		if (strncmp(input, "/vote ", 6) == 0 || strncmp(input, "/skip", 6) == 0) {
+		if (strncmp(input, "/vote ", 6) == 0
+				|| strncmp(input, "/yeet ", 6) == 0
+				|| strncmp(input, "/skip", 6) == 0) {
 			if (players[pid].voted) {
 				snprintf(buf, sizeof(buf), "You can only vote once\n");
 				write(players[pid].fd, buf, strlen(buf));
@@ -602,9 +621,8 @@ discussion(int pid, char* input)
 check_votes:
 			// Check if voting is complete
 			for(int i=0;i<NUM_PLAYERS;i++) {
-				if(players[i].fd != -1 && 
-						players[i].voted == 0 &&
-						players[i].is_alive == 1) {
+				if(players[i].fd != -1 && players[i].voted == 0
+						&& alive(players[i])) {
 					printf("No vote from [%s] yet\n", players[i].name);
 					goto not_yet;
 				}
@@ -652,7 +670,7 @@ check_votes:
 				broadcast(".", -1);
 			}
 
-			players[winner].is_alive = 0;
+			players[winner].state = PLAYER_STATE_EJECTED;
 			if (players[winner].is_imposter) {
 				snprintf(buf, sizeof(buf), "It turns out [%s] was an imposter", players[winner].name);
 				broadcast(buf, -1);
@@ -675,9 +693,9 @@ not_yet:
 			for(int i=0; i<NUM_PLAYERS;i++) {
 				if (players[i].fd == -1)
 					continue;
-				if (players[i].is_alive && players[i].voted) {
+				if (alive(players[i]) && players[i].voted) {
 					snprintf(buf, sizeof(buf), "* %d [%s] (voted) \n", i, players[i].name);
-				} else if (players[i].is_alive) {
+				} else if (alive(players[i])) {
 					snprintf(buf, sizeof(buf), "* %d [%s]\n", i, players[i].name);
 				} else {
 					snprintf(buf, sizeof(buf), "* %d [%s] (dead)\n", i, players[i].name);
@@ -708,7 +726,7 @@ not_yet:
 			close(players[vote].fd);
 			FD_CLR(players[vote].fd, &afds);
 			players[vote].fd = -1;
-			players[vote].is_alive = 0;
+			players[vote].state = PLAYER_STATE_KICKED;
 			goto check_votes;
 
 		} else {
@@ -765,14 +783,25 @@ adventure(int pid, char* input)
 					|| players[i].fd == -1 || i == pid)
 				continue;
 
-			if (players[i].is_alive)
+			switch (players[i].state) {
+			case PLAYER_STATE_ALIVE:
 				snprintf(buf, sizeof(buf),
 						"you also see %s in the room with you\n",
 						players[i].name);
-			else
+				break;
+			case PLAYER_STATE_DEAD:
 				snprintf(buf, sizeof(buf),
 						"you also see %s's corpse in the room with you\n",
 						players[i].name);
+				break;
+			case PLAYER_STATE_FOUND:
+				snprintf(buf, sizeof(buf),
+						"you also see %s's reported corpse in the room with you\n",
+						players[i].name);
+				break;
+			default:
+				buf[0] = '\0';
+			}
 			write(players[pid].fd, buf, strlen(buf));
 		}
 		snprintf(buf, sizeof(buf), "# ");
@@ -808,7 +837,7 @@ adventure(int pid, char* input)
 			for(int i=0; i<NUM_PLAYERS;i++) {
 				if (players[i].location != players[pid].location
 						|| i == pid || players[i].fd == -1
-						|| players[i].is_alive == 0)
+						|| !alive(players[i]))
 					continue;
 
 				// TODO: kill more randomly
@@ -822,8 +851,8 @@ adventure(int pid, char* input)
 		for(int i=0; i<NUM_PLAYERS;i++) {
 			if (players[i].location != players[pid].location
 					|| i == pid || players[i].fd == -1
-					|| players[i].is_alive == 1
-					|| players[pid].is_alive == 0)
+					|| players[i].state != PLAYER_STATE_DEAD
+					|| !alive(players[pid]))
 				continue;
 
 			start_discussion(pid, i);
@@ -917,7 +946,7 @@ start_game()
 
 		players[i].stage = PLAYER_STAGE_MAIN;
 		players[i].location = LOC_CAFETERIA;
-		players[i].is_alive = 1;
+		players[i].state = PLAYER_STATE_ALIVE;
 
 		// Assign NUM_SHORT random short tasks
 		for(int j=0;j<NUM_SHORT;j++) {
