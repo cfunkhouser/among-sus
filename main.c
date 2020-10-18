@@ -135,12 +135,12 @@ enum player_location doors[][10] = {
 	[LOC_SECURITY] = { LOC_UPPER_ENGINE, LOC_REACTOR, LOC_LOWER_ENGINE, -1 },
 	[LOC_MEDBAY] = { LOC_UPPER_ENGINE, LOC_CAFETERIA, -1 },
 	[LOC_ELECTRICAL] = { LOC_LOWER_ENGINE, LOC_STORAGE, -1 },
-	[LOC_STORAGE] = { LOC_ELECTRICAL, LOC_ADMIN, LOC_COMMUNICATIONS, -1 },
+	[LOC_STORAGE] = { LOC_ELECTRICAL, LOC_ADMIN, LOC_COMMUNICATIONS, LOC_SHIELDS, -1 },
 	[LOC_ADMIN] = { LOC_CAFETERIA, LOC_STORAGE, -1 },
 	[LOC_COMMUNICATIONS] = { LOC_STORAGE, LOC_SHIELDS, -1 },
 	[LOC_O2] = { LOC_SHIELDS, LOC_WEAPONS, LOC_NAVIGATION, -1 },
 	[LOC_WEAPONS] = { LOC_CAFETERIA, LOC_O2, LOC_NAVIGATION, -1 },
-	[LOC_SHIELDS] = { LOC_STORAGE, LOC_O2, LOC_NAVIGATION, -1 },
+	[LOC_SHIELDS] = { LOC_STORAGE, LOC_COMMUNICATIONS, LOC_O2, LOC_NAVIGATION, -1 },
 	[LOC_NAVIGATION] = { LOC_WEAPONS, LOC_O2, LOC_SHIELDS, -1 },
 };
 
@@ -170,6 +170,7 @@ struct player {
 	enum player_location location;
 	int in_vent;
 	int is_alive;
+	int is_found;
 	int has_cooldown;
 	int voted;
 	int votes;
@@ -186,11 +187,12 @@ struct gamestate {
 	int players;
 	int is_reactor_meltdown;
 	int chats_left;
+	int skips;
 };
 
 struct gamestate state;
 struct player players[NUM_PLAYERS];
-
+fd_set rfds, afds;
 
 void
 broadcast(char* message, int notfd)
@@ -223,7 +225,8 @@ player_move(int pid, enum player_location location)
 	for(int i=0; i<NUM_PLAYERS;i++) {
 		if (players[i].location != players[pid].location || i == pid
 				|| players[i].fd == -1
-				|| players[i].is_alive == 1)
+				|| players[i].is_alive == 1
+				|| players[i].is_found == 1)
 			continue;
 
 		snprintf(buf, sizeof(buf), "you enter the room and see the body of [%s] laying on the floor\n", players[i].name);
@@ -249,19 +252,30 @@ end_game()
 void
 check_win_condition(void)
 {
+	char buf[100];
 	int alive = 0;
+	int iid;
+
 	for(int i=0; i<NUM_PLAYERS;i++) {
+		if (players[i].fd != -1 && players[i].is_imposter)
+			iid = i;
+
 		if (players[i].is_imposter == 1 && players[i].is_alive == 0) {
 			broadcast("The crew won", -1);
 			end_game();
 			return;
 		}
-		if (players[i].fd != -1 && players[i].is_alive == 0)
+
+		if (players[i].fd != -1 &&
+				players[i].is_alive == 1 &&
+				players[i].is_imposter == 0)
 			alive++;
 	}
 
 	if (alive == 1) {
-		broadcast("The imposter won", -1);
+		broadcast("The imposter is alone with the last crewmate and murders him", -1);
+		snprintf(buf, strlen(buf), "The imposter was [%s] all along...", players[iid].name);
+		broadcast(buf, -1);
 		end_game();
 	}
 }
@@ -332,7 +346,7 @@ player_kill(int pid, int tid)
 	char buf[100];
 
 	if(players[pid].location != players[tid].location
-			|| players[pid].is_imposter)
+			|| players[tid].is_imposter)
 		return;
 
 	// so sad
@@ -366,8 +380,9 @@ start_discussion(int pid, int bid)
 	char buf[100];
 
 	state.stage = STAGE_DISCUSS;
+	state.skips = 0;
 
-	// switch everyone to the discussion state
+	// switch everyone to the discussion state and mark bodies found
 	for(int i=0; i<NUM_PLAYERS;i++) {
 		if (players[i].fd == -1)
 			continue;
@@ -375,6 +390,9 @@ start_discussion(int pid, int bid)
 		players[i].stage = PLAYER_STAGE_DISCUSS;
 		players[i].voted = 0;
 		players[i].votes = 0;
+
+		if (!players[i].is_alive)
+			players[i].is_found = 1;
 	}
 	broadcast("------------------------", -1);
 	// Inform everyone
@@ -424,7 +442,7 @@ void
 discussion(int pid, char* input)
 {
 	char buf[300];
-	int vote = 0, max_votes = 0, tie = 0, winner = 0, crew_alive = 0;
+	int vote = 0, max_votes = 0, tie = 0, winner = -1, crew_alive = 0;
 	char temp[5];
 
 	// TODO: implement broadcast to dead players
@@ -432,31 +450,43 @@ discussion(int pid, char* input)
 		return;
 
 	if (input[0] == '/' && input[1] != '/') {
-		if (strncmp(input, "/vote ", 6) == 0) {
+		if (strncmp(input, "/vote ", 6) == 0 || strncmp(input, "/skip", 6) == 0) {
 			if (players[pid].voted) {
 				snprintf(buf, sizeof(buf), "You can only vote once\n");
 				write(players[pid].fd, buf, strlen(buf));
 				return;
 			}
-			char *endptr = NULL;
-			strncpy(temp, &input[6], 4);
-			printf("Decoding '%s' now\n", temp);
-			vote = strtol(temp, &endptr, 10);
-			if (!endptr || endptr[0] != '\0') {
-				snprintf(buf, sizeof(buf), "Invalid vote, not an integer\n");
-				write(players[pid].fd, buf, strlen(buf));
-				return;
+			if (input[1] == 's') {
+				vote = -1;
+			} else {
+				char *endptr = NULL;
+				strncpy(temp, &input[6], 4);
+				printf("Decoding '%s' now\n", temp);
+				vote = strtol(temp, &endptr, 10);
+				if (!endptr || endptr[0] != '\0') {
+					snprintf(buf, sizeof(buf), "Invalid vote, not an integer\n");
+					write(players[pid].fd, buf, strlen(buf));
+					return;
+				}
 			}
 
-			printf("[%s] voted for %d\n", players[pid].name, vote);
-			if(vote < 0 || vote > NUM_PLAYERS-1 || players[vote].fd == -1) {
+			if (vote == -1) {
+				printf("[%s] voted to skip\n", players[pid].name);
+			} else {
+				printf("[%s] voted for %d\n", players[pid].name, vote);
+			}
+			if(vote < -1 || vote > NUM_PLAYERS-1 || players[vote].fd == -1) {
 				snprintf(buf, sizeof(buf), "Invalid vote, no such player\n");
 				write(players[pid].fd, buf, strlen(buf));
 				return;
 			}
 			players[pid].voted = 1;
-			players[vote].votes++;
-
+			if (vote == -1) {
+				state.skips++;
+			} else {
+				players[vote].votes++;
+			}
+check_votes:
 			// Check if voting is complete
 			for(int i=0;i<NUM_PLAYERS;i++) {
 				if(players[i].fd != -1 && 
@@ -470,6 +500,7 @@ discussion(int pid, char* input)
 			printf("Voting complete\n");
 
 			// Count votes
+			max_votes = state.skips;
 			for(int i=0;i<NUM_PLAYERS;i++) {
 				if(players[i].fd == -1)
 					continue;
@@ -486,10 +517,15 @@ discussion(int pid, char* input)
 				}
 			}
 
-			printf("%d\n", winner);
+			printf("Vote winner: %d\n", winner);
 
 			if (tie) {
 				broadcast("The voting ended in a tie", -1);
+				back_to_playing();
+				return;
+			} else if (winner == -1) {
+				snprintf(buf, sizeof(buf), "The crew voted to skip\n");
+				broadcast(buf, -1);
 				back_to_playing();
 				return;
 			} else {
@@ -517,6 +553,49 @@ discussion(int pid, char* input)
 
 not_yet:
 			broadcast("A vote has been cast", -1);
+		} else if (strncmp(input, "/help", 6) == 0) {
+			snprintf(buf, sizeof(buf), "Commands: /vote [id], /skip, /list\n");
+			write(players[pid].fd, buf, strlen(buf));
+		} else if (strncmp(input, "/list", 6) == 0) {
+			for(int i=0; i<NUM_PLAYERS;i++) {
+				if (players[i].fd == -1)
+					continue;
+				if (players[i].is_alive && players[i].voted) {
+					snprintf(buf, sizeof(buf), "* %d [%s] (voted) \n", i, players[i].name);
+				} else if (players[i].is_alive) {
+					snprintf(buf, sizeof(buf), "* %d [%s]\n", i, players[i].name);
+				} else {
+					snprintf(buf, sizeof(buf), "* %d [%s] (dead)\n", i, players[i].name);
+				}
+				write(players[pid].fd, buf, strlen(buf));
+			}
+
+			snprintf(buf, sizeof(buf), "Commands: /vote [id], /skip, /list\n");
+			write(players[pid].fd, buf, strlen(buf));
+		} else if (strncmp(input, "/kick", 5) == 0) {
+			if (!players[pid].is_admin) {
+				snprintf(buf, sizeof(buf), "You have no kicking permission\n");
+				write(players[pid].fd, buf, strlen(buf));
+			}
+
+			char *endptr = NULL;
+			strncpy(temp, &input[6], 4);
+			printf("Decoding '%s' now\n", temp);
+			vote = strtol(temp, &endptr, 10);
+			if (!endptr || endptr[0] != '\0') {
+				snprintf(buf, sizeof(buf), "Invalid kick, not an integer\n");
+				write(players[pid].fd, buf, strlen(buf));
+				return;
+			}
+			snprintf(buf, sizeof(buf), "Admin kicked [%s]\n", players[vote].name);
+			broadcast(buf, -1);
+			
+			close(players[vote].fd);
+			FD_CLR(players[vote].fd, &afds);
+			players[vote].fd = -1;
+			players[vote].is_alive = 0;
+			goto check_votes;
+
 		} else {
 			snprintf(buf, sizeof(buf), "Invalid command\n");
 			write(players[pid].fd, buf, strlen(buf));
@@ -550,7 +629,7 @@ adventure(int pid, char* input)
 	int task_id;
 	int task_is_long;
 
-	if (input[0] == 'e') {
+	if (input[0] == 'e' || strncmp(input, "ls", 3) == 0) {
 		enum player_location loc = players[pid].location;
 		strcpy(buf, "you can move to: ");
 		assert(doors[loc][0] != -1);
@@ -577,7 +656,7 @@ adventure(int pid, char* input)
 			write(players[pid].fd, buf, strlen(buf));
 		}
 		snprintf(buf, sizeof(buf), "# ");
-	} else if (strncmp(input, "go ", 3) == 0) {
+	} else if (strncmp(input, "go ", 3) == 0 || strncmp(input, "cd ", 3) == 0) {
 		enum player_location new;
 		for (new = 0; new < LOC_COUNT; new++) {
 			if (strcmp(locations[new], &input[3]) == 0) {
@@ -929,7 +1008,6 @@ main(void)
 	struct sockaddr_in listen_addr, client_addr;
 	int port = 1234;
 	int i;
-	fd_set rfds, afds;
 
 	for (i = 0; i < NUM_PLAYERS; i++) {
 		players[i].fd = -1;
