@@ -750,7 +750,8 @@ adventure(int pid, char* input)
 		for(int i=0; i<NUM_PLAYERS;i++) {
 			if (players[i].location != players[pid].location
 					|| i == pid || players[i].fd == -1
-					|| players[i].is_alive == 1)
+					|| players[i].is_alive == 1
+					|| players[pid].is_alive == 0)
 				continue;
 
 			start_discussion(pid, i);
