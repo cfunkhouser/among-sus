@@ -60,7 +60,7 @@ enum player_task_short {
 const char short_task_descriptions[][45] = {
 	"Empty the cafeteria trash",
 	"Start the coffee maker in the cafeteria",
-	"Fix cafeteria wireing",
+	"Fix wiring in cafeteria",
 	"Empty the storage trash chute",
 	"Fix wiring in electrical",
 	"Reset breakers in electrical",
@@ -270,15 +270,13 @@ end_game()
 	}
 }
 
-// TODO: check if crew has won by completing tasks
 void
 check_win_condition(void)
 {
 	char buf[100];
-	int alive = 0;
-	int iid;
+	int alive = 0, iid = -1, tasks = 1;
 
-	for(int i=0; i<NUM_PLAYERS;i++) {
+	for (size_t i = 0; i < NUM_PLAYERS; i++) {
 		if (players[i].fd != -1 && players[i].is_imposter)
 			iid = i;
 
@@ -292,11 +290,35 @@ check_win_condition(void)
 				players[i].is_alive == 1 &&
 				players[i].is_imposter == 0)
 			alive++;
+
+		if (players[i].fd != -1 && !players[i].is_imposter
+				&& players[i].is_alive) {
+			for (size_t j = 0; j < NUM_SHORT; j++) {
+				if (!players[i].short_tasks_done[j]) {
+					printf("%zu, %zu\n", i, j);
+					tasks = 0;
+					break;
+				}
+			}
+			for (size_t j = 0; j < NUM_LONG; j++) {
+				if (!players[i].long_tasks_done[j]) {
+					printf("%zu, %zu\n", i, j);
+					tasks = 0;
+					break;
+				}
+			}
+		}
+	}
+
+	if (tasks == 1) {
+		broadcast("The crew won", -1);
+		end_game();
+		return;
 	}
 
 	if (alive == 1) {
 		broadcast("The imposter is alone with the last crewmate and murders him", -1);
-		snprintf(buf, strlen(buf), "The imposter was [%s] all along...", players[iid].name);
+		snprintf(buf, sizeof(buf), "The imposter was [%s] all along...", players[iid].name);
 		broadcast(buf, -1);
 		end_game();
 	}
@@ -772,7 +794,11 @@ adventure(int pid, char* input)
 			// check it was in the right room
 			if (strstr(input, locations[players[pid].location]) != NULL) {
 				task_completed(pid, task_id, task_is_long);
-				snprintf(buf, sizeof(buf), "Completed task\n# ");
+				if (state.stage == STAGE_PLAYING) {
+					snprintf(buf, sizeof(buf), "Completed task\n# ");
+				} else {
+					buf[0] = '\0';
+				}
 			} else {
 				snprintf(buf, sizeof(buf), "You're in the wrong place for that\n# ");
 			}
