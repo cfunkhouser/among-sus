@@ -295,14 +295,12 @@ check_win_condition(void)
 				&& players[i].is_alive) {
 			for (size_t j = 0; j < NUM_SHORT; j++) {
 				if (!players[i].short_tasks_done[j]) {
-					printf("%zu, %zu\n", i, j);
 					tasks = 0;
 					break;
 				}
 			}
 			for (size_t j = 0; j < NUM_LONG; j++) {
 				if (!players[i].long_tasks_done[j]) {
-					printf("%zu, %zu\n", i, j);
 					tasks = 0;
 					break;
 				}
