@@ -470,7 +470,7 @@ player_kill(size_t pid, size_t tid)
 
 	// less murdering, reset by movement
 	players[pid].has_cooldown = 1;
-	
+
 	// notify player of their recent death
 	snprintf(buf, sizeof(buf), "It turns out %s is the imposter, sadly the way you know is that you died.\n",
 		players[pid].name);
@@ -486,7 +486,7 @@ player_kill(size_t pid, size_t tid)
 			players[tid].name);
 		write(players[i].fd, buf, strlen(buf));
 	}
-	
+
 	check_win_condition();
 }
 
@@ -712,7 +712,7 @@ not_yet:
 			}
 			snprintf(buf, sizeof(buf), "Admin kicked [%s]\n", players[vote].name);
 			broadcast(buf, -1);
-			
+
 			close(players[vote].fd);
 			FD_CLR(players[vote].fd, &afds);
 			players[vote].fd = -1;
@@ -920,7 +920,7 @@ start_game()
 	unsigned temp;
 
 	broadcast("---------- [ Game is starting ] ----------", -1);
-	state.stage = STAGE_PLAYING;	
+	state.stage = STAGE_PLAYING;
 	state.players = 0;
 	for(int i=0; i<NUM_PLAYERS; i++) {
 		if(players[i].fd != -1) {
@@ -1063,7 +1063,7 @@ handle_input(int fd)
 			break;
 		}
 	}
-	
+
 	printf("%zu: %s\n", pid, buf);
 
 	switch(players[pid].stage) {
