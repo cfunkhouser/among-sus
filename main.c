@@ -306,8 +306,8 @@ player_move(size_t pid, enum player_location location)
 	// Notify players you're moving
 	if (MOVEMENT_NOTIFICATIONS) {
 		for (size_t i = 0; i < NUM_PLAYERS; i++) {
-			if (players[i].fd == -1 || i == pid
-					|| !alive(players[i]))
+			if (players[i].fd == -1 || !alive(players[i])
+					|| !alive(players[pid]) || i == pid)
 				continue;
 
 			if (players[i].location == players[pid].location) {
