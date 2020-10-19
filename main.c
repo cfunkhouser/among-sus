@@ -357,8 +357,7 @@ check_win_condition(void)
 				&& players[i].is_imposter == 0)
 			nalive++;
 
-		if (players[i].fd != -1 && !players[i].is_imposter
-				&& alive(players[i])) {
+		if (players[i].fd != -1 && !players[i].is_imposter) {
 			for (size_t j = 0; j < NUM_SHORT; j++) {
 				if (!players[i].short_tasks_done[j]) {
 					tasks = 0;
