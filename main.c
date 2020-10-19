@@ -1195,18 +1195,17 @@ welcome_player(int fd)
 int
 main(void)
 {
-	int listen_fd;
-	int new_fd;
+	int listen_fd, listen6_fd, new_fd, i, port = 1234, v6only = 1;
 	socklen_t client_size;
 	struct sockaddr_in listen_addr, client_addr;
-	int port = 1234;
-	int i;
+	struct sockaddr_in6 listen6_addr;
 
 	for (i = 0; i < NUM_PLAYERS; i++) {
 		players[i].fd = -1;
 	};
 
 	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+	listen6_fd = socket(AF_INET6, SOCK_STREAM, 0);
 
 	i = 1;
 	if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
@@ -1219,18 +1218,29 @@ main(void)
 	listen_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	listen_addr.sin_port = htons(port);
 
+	listen6_addr.sin6_family = AF_INET6;
+	listen6_addr.sin6_addr = in6addr_any;
+	listen6_addr.sin6_port = htons(port);
+	setsockopt(listen6_fd, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
+
 	if (bind(listen_fd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0) {
-		perror("bind");
+		perror("ipv4 bind");
+		return -1;
+	}
+	if (bind(listen6_fd, (struct sockaddr *)&listen6_addr, sizeof(listen6_addr)) < 0) {
+		perror("ipv6 bind");
 		return -1;
 	}
 
 	listen(listen_fd, 5);
+	listen(listen6_fd, 5);
 	printf("Listening on :%d\n", port);
 
 	state.stage = STAGE_LOBBY;
 
 	FD_ZERO(&afds);
 	FD_SET(listen_fd, &afds);
+	FD_SET(listen6_fd, &afds);
 
 	while (1) {
 		rfds = afds;
@@ -1241,10 +1251,10 @@ main(void)
 
 		for (i = 0; i < FD_SETSIZE; ++i) {
 			if (FD_ISSET (i, &rfds)) {
-				if (i == listen_fd) {
+				if (i == listen_fd || i == listen6_fd) {
 					printf("welcome client!\n");
 					client_size = sizeof(client_addr);
-					new_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &client_size);
+					new_fd = accept(i, (struct sockaddr *)&client_addr, &client_size);
 					if (new_fd < 0) {
 						perror("accept");
 						exit(EXIT_FAILURE);
