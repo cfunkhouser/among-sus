@@ -568,7 +568,6 @@ discussion(size_t pid, char *input)
 {
 	char buf[300];
 	intmax_t vote = 0, max_votes = 0, tie = 0, winner = -1;
-	char temp[5];
 
 	// TODO: implement broadcast to dead players
 	if (!alive(players[pid]))
@@ -587,9 +586,7 @@ discussion(size_t pid, char *input)
 				vote = -1;
 			} else {
 				char *endptr = NULL;
-				strncpy(temp, &input[6], 4);
-				printf("Decoding '%s' now\n", temp);
-				vote = strtol(temp, &endptr, 10);
+				vote = strtol(&input[6], &endptr, 10);
 				if (!endptr || endptr[0] != '\0') {
 					snprintf(buf, sizeof(buf), "Invalid vote, not an integer\n");
 					write(players[pid].fd, buf, strlen(buf));
@@ -707,9 +704,7 @@ not_yet:
 			}
 
 			char *endptr = NULL;
-			strncpy(temp, &input[6], 4);
-			printf("Decoding '%s' now\n", temp);
-			vote = strtol(temp, &endptr, 10);
+			vote = strtol(input[6], &endptr, 10);
 			if (!endptr || endptr[0] != '\0') {
 				snprintf(buf, sizeof(buf), "Invalid kick, not an integer\n");
 				write(players[pid].fd, buf, strlen(buf));
