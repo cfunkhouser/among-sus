@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200112L
 #define _XOPEN_SOURCE 700
+#define RAND_MAX 10
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
@@ -7,6 +8,7 @@
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -217,6 +219,24 @@ struct gamestate {
 struct gamestate state;
 struct player players[NUM_PLAYERS];
 fd_set rfds, afds;
+
+int
+random_num(int upper_bound)
+{
+	static bool initialised = false;
+	if (!initialised) {
+		srand(time(NULL));
+		initialised = true;
+	}
+	int ret;
+
+	do {
+		ret = rand();
+	} while (ret >= (RAND_MAX - RAND_MAX % upper_bound));
+
+	ret %= upper_bound;
+	return ret;
+}
 
 void
 broadcast(char* message, int notfd)
@@ -857,7 +877,7 @@ start_game()
 	}
 
 	// Pick an imposter
-	imposternum = rand() % state.players;
+	imposternum = random_num(state.players);
 	assigned = 0;
 	for(int i=0; i<NUM_PLAYERS; i++) {
 		if(players[i].fd == -1)
@@ -870,7 +890,7 @@ start_game()
 		// Assign NUM_SHORT random short tasks
 		for(int j=0;j<NUM_SHORT;j++) {
 retry:
-			temp = rand() % TASK_SHORT_COUNT;
+			temp = random_num(TASK_SHORT_COUNT);
 			for(int k=0;k<NUM_SHORT;k++) {
 				if(players[i].short_tasks[k] == temp)
 					goto retry;
@@ -882,7 +902,7 @@ retry:
 		// Assign NUM_LONG random long tasks
 		for(int j=0;j<NUM_LONG;j++) {
 retry2:
-			temp = rand() % TASK_LONG_COUNT;
+			temp = random_num(TASK_LONG_COUNT);
 			for(int k=0;k<NUM_LONG;k++) {
 				if(players[i].long_tasks[k] == temp)
 					goto retry2;
@@ -1124,7 +1144,6 @@ main(void)
 	for (i = 0; i < NUM_PLAYERS; i++) {
 		players[i].fd = -1;
 	};
-	srand(time(NULL));
 
 	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
 
