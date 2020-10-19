@@ -1190,7 +1190,7 @@ welcome_player(int fd)
 int
 main(void)
 {
-	int listen_fd, listen6_fd, new_fd, i, v6only = 1;
+	int listen_fd, listen6_fd, new_fd, i;
 	uint16_t port = 1234;
 	socklen_t client_size;
 	struct sockaddr_in listen_addr, client_addr;
@@ -1207,7 +1207,7 @@ main(void)
 	i = 1;
 	if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
 				&i, sizeof(i))) {
-		perror("error: setsockopt");
+		perror("setsockopt");
 		exit(EXIT_FAILURE);
 	}
 
@@ -1218,7 +1218,16 @@ main(void)
 	listen6_addr.sin6_family = AF_INET6;
 	listen6_addr.sin6_addr = in6addr_any;
 	listen6_addr.sin6_port = htons(port);
-	setsockopt(listen6_fd, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
+	if (setsockopt(listen6_fd, IPPROTO_IPV6, IPV6_V6ONLY,
+				&i, sizeof(i))) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
+	if (setsockopt(listen6_fd, IPPROTO_IPV6, IPV6_V6ONLY,
+				&i, sizeof(i))) {
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
+	}
 
 	if (bind(listen_fd, (struct sockaddr *)&listen_addr, sizeof(listen_addr)) < 0) {
 		perror("ipv4 bind");
