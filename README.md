@@ -2,6 +2,28 @@
 
 A recreation of Among Us mechanics but as a multiplayer text adventure game instead of a graphical client. 
 
+```
+|\----------------|--------------|----------------|--------------\
+|                                                                 \
+| UPPER ENGINE                        CAFETERIA       WEAPONS      \
+|                 |-     --------|                |                 \
+|/--------|    |--|       MEDBAY |                |                  \
+          |    |                 |                |                   \------\
+/---------|    |-------\         |                |----------|        |       \
+|         |    |        \        |---|     |------|          |                 |
+|                        \       |                |                            |
+| REACTOR        SECURITY |      |  ADMIN OFFICE  |   O2           NAVIGATION  |
+|                         |      |                |          |                 |
+|         |    |          |      |---|     |----|-|----------|                 |
+\---------|    |----------|------|              |                     |       /
+          |    |                 |                                    /------/
+|\--------|    |--|              |                                   /
+|                 |              |              |--    --|          /
+| LOWER ENGINE       ELECTRICAL       STORAGE   | COMMS  | SHIELDS /
+|                                               |        |        /
+|/----------------|--------------|--------------|--------|-------/
+```
+
 ## Building
 
 ```shell-session
