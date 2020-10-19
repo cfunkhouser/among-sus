@@ -860,16 +860,13 @@ adventure(int pid, char* input)
 		}
 		for(int i=0;i<TASK_LONG_COUNT;i++) {
 			for(int k=0;k<2;k++) {
-				printf("Match against %d %d\n", i, k);
 				if(strcmp(input, long_task_descriptions[i][k]) == 0) {
-					printf("Got %d %d\n", i, k);
 					// Check if player has the task
 					for(int l=0; l<NUM_LONG; l++) {
 						if (players[pid].long_tasks[l] == i &&
 								players[pid].long_tasks_done[l] == k) {
 							task_id = i;
 							task_is_long = 1;
-							printf("Task is long!\n");
 						}
 					}
 				}
