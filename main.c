@@ -1,4 +1,3 @@
-#define RAND_MAX 10
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
