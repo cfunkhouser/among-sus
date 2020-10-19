@@ -45,14 +45,21 @@ enum player_task_short {
 	TASK_CAFE_COFFEE,
 	TASK_CAFE_WIRES,
 	TASK_STORAGE_TRASH,
+	TASK_STORAGE_WIRES,
+	TASK_STORAGE_CLEAN,
 	TASK_ELECTRICAL_WIRES,
 	TASK_ELECTRICAL_BREAKERS,
 	TASK_ADMIN_WIRES,
+	TASK_ADMIN_CLEAN,
 	TASK_NAVIGATION_WIRES,
+	TASK_NAVIGATION_COURSE,
+	TASK_NAVIGATION_HEADING,
 	TASK_WEAPONS_WIRES,
+	TASK_WEAPONS_CALIBRATE,
 	TASK_SHIELDS_WIRES,
 	TASK_O2_WIRES,
 	TASK_O2_CLEAN,
+	TASK_OS_WATER,
 	TASK_MEDBAY_WIRES,
 	TASK_UPPER_CATALYZER,
 	TASK_LOWER_CATALYZER,
@@ -66,14 +73,21 @@ const char short_task_descriptions[][45] = {
 	"Start the coffee maker in the cafeteria",
 	"Fix wiring in cafeteria",
 	"Empty the storage trash chute",
+	"Fix wiring in storage",
+	"Clean the floor in storage",
 	"Fix wiring in electrical",
 	"Reset breakers in electrical",
 	"Fix wiring in admin",
+	"Clean the floor in admin",
 	"Fix wiring in navigation",
+	"Adjust course in navigation",
+	"Check headings in navigation",
 	"Fix wiring in weapons",
+	"Calibrate targeting system in weapons",
 	"Fix wiring in shields",
 	"Fix wiring in o2",
-	"Clean oxygenator output in o2",
+	"Clean oxygenator filter in o2",
+	"Water plants in o2",
 	"Fix wiring in medbay",
 	"Check catalyzer in upper engine",
 	"Check catalyzer in lower engine",
@@ -82,18 +96,23 @@ const char short_task_descriptions[][45] = {
 };
 
 enum player_task_long {
-	TASK_STORAGE_COUNT,
-	TASK_O2_LOG,
-	TASK_REACTOR_LOG,
-	TASK_ADMIN_PIN,
+	TASK_SHIELDS_POWER,
+	TASK_WEAPONS_POWER,
+	TASK_NAV_LOG,
+	TASK_SHIELD_LOG,
+	TASK_REACTOR_FUEL,
+	TASK_POTATO,
 	TASK_LONG_COUNT
 };
 
-const char long_task_descriptions[][45] = {
-	"Take count of the boxes in storage",
-	"Log o2 numbers",
-	"Log reactor numbers",
-	"Enter pin at admin",
+const char long_task_descriptions[][2][45] = {
+	{"Route power to defence in electrical", "Accept rerouted power in shields"},
+	{"Route power to attack in electrical", "Accept rerouted power in weapons"},
+	{"Download latest navigation data", "Upload data in admin"},
+	{"Download latest shields data", "Upload data in admin"},
+	{"Pick up nuclear fuel in storage", "Insert fuel into reactor"},
+	{"Pick up potato in cafeteria", "Plant the potato in o2"},
+	{"Get radio log from communications", "Deliver communications log to admin"},
 };
 
 enum player_location {
@@ -343,7 +362,7 @@ check_win_condition(void)
 				}
 			}
 			for (size_t j = 0; j < NUM_LONG; j++) {
-				if (!players[i].long_tasks_done[j]) {
+				if (players[i].long_tasks_done[j] != 2) {
 					tasks = 0;
 					break;
 				}
@@ -380,7 +399,7 @@ task_completed(int pid, int task_id, int long_task)
 	} else {
 		for(int i=0; i<NUM_LONG; i++) {
 			if (players[pid].long_tasks[i] == task_id) {
-				players[pid].long_tasks_done[i] = 1;
+				players[pid].long_tasks_done[i]++;
 			}
 		}
 	}
@@ -392,6 +411,7 @@ void
 player_list_tasks(int pid)
 {
 	char buf[100];
+	int task_desc;
 
 	for(int i=0;i<TASK_SHORT_COUNT;i++){
 		for(int j=0;j<NUM_SHORT;j++) {
@@ -412,13 +432,18 @@ player_list_tasks(int pid)
 		for(int j=0;j<NUM_LONG;j++) {
 			if(players[pid].long_tasks[j] == i) {
 				const char *cm;
-				if(players[pid].long_tasks_done[j]) {
+				if(players[pid].long_tasks_done[j] == 2) {
 					cm = "*";
+					task_desc = 0;
+				} else if(players[pid].long_tasks_done[j] == 1) {
+					cm = "-";
+					task_desc = 1;
 				} else {
 					cm = " ";
+					task_desc = 0;
 				}
 				snprintf(buf, sizeof(buf), " [%s] %s\n", cm,
-					long_task_descriptions[i]);
+					long_task_descriptions[i][task_desc]);
 				write(players[pid].fd, buf, strlen(buf));
 			}
 		}
@@ -834,10 +859,20 @@ adventure(int pid, char* input)
 			}
 		}
 		for(int i=0;i<TASK_LONG_COUNT;i++) {
-			if(strcmp(input, long_task_descriptions[i]) == 0) {
-				task_id = i;
-				task_is_long = 1;
-				break;
+			for(int k=0;k<2;k++) {
+				printf("Match against %d %d\n", i, k);
+				if(strcmp(input, long_task_descriptions[i][k]) == 0) {
+					printf("Got %d %d\n", i, k);
+					// Check if player has the task
+					for(int l=0; l<NUM_LONG; l++) {
+						if (players[pid].long_tasks[l] == i &&
+								players[pid].long_tasks_done[l] == k) {
+							task_id = i;
+							task_is_long = 1;
+							printf("Task is long!\n");
+						}
+					}
+				}
 			}
 		}
 		if (task_id == -1) {
