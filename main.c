@@ -1147,6 +1147,13 @@ main(void)
 
 	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
 
+	i = 1;
+	if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR,
+				&i, sizeof(i))) {
+		perror("error: setsockopt");
+		exit(EXIT_FAILURE);
+	}
+
 	listen_addr.sin_family = AF_INET;
 	listen_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	listen_addr.sin_port = htons(port);
