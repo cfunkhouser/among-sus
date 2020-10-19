@@ -703,7 +703,7 @@ not_yet:
 			}
 
 			char *endptr = NULL;
-			vote = strtol(input[6], &endptr, 10);
+			vote = strtol(&input[6], &endptr, 10);
 			if (!endptr || endptr[0] != '\0') {
 				snprintf(buf, sizeof(buf), "Invalid kick, not an integer\n");
 				write(players[pid].fd, buf, strlen(buf));
