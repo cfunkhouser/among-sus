@@ -854,6 +854,8 @@ adventure(size_t pid, char *input)
 	} else if (strcmp(input, "press emergency button") == 0) {
 		if (players[pid].location != LOC_CAFETERIA) {
 			snprintf(buf, sizeof(buf), "You can't do that here");
+		} else if (!alive(players[pid])) {
+			snprintf(buf, sizeof(buf), "Ghosts can't call emergencies");
 		} else {
 			start_discussion(pid, SIZE_MAX);
 			return;
