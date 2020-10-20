@@ -1089,6 +1089,7 @@ handle_input(int fd)
 		}
 
 		if (players[pid].is_admin) {
+			state.has_admin = 0;
 			reassign_admin();
 		}
 
@@ -1104,6 +1105,7 @@ handle_input(int fd)
 		}
 
 		if (players[pid].is_admin) {
+			state.has_admin = 0;
 			reassign_admin();
 		}
 
@@ -1219,6 +1221,7 @@ welcome_player(int fd)
 			continue;
 		}
 		players[i].fd = fd;
+		players[i].is_admin = 0;
 		if (!state.has_admin) {
 			state.has_admin = 1;
 			players[i].is_admin = 1;
