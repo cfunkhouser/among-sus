@@ -293,7 +293,7 @@ broadcast_ghosts(char* message, int notfd)
 	snprintf(buf, sizeof(buf), "%s\n", message);
 
 	for (pid = 0; pid < NUM_PLAYERS; pid++) {
-		if (players[pid].fd == -1 
+		if (players[pid].fd == -1
 				|| players[pid].fd == notfd
 				|| players[pid].stage == PLAYER_STAGE_NAME
 				|| alive(players[pid]))
@@ -761,7 +761,7 @@ not_yet:
 			players[vote].state = PLAYER_STATE_KICKED;
 			goto check_votes;
 
-		} else if (strncmp(input, "/me ", 4) == 0) {	
+		} else if (strncmp(input, "/me ", 4) == 0) {
 			if (alive(players[pid])) {
 				snprintf(buf, sizeof(buf), "(%d) * [%s] %s", state.chats_left, players[pid].name, &input[4]);
 				broadcast(buf, -1);
@@ -770,7 +770,7 @@ not_yet:
 				snprintf(buf, sizeof(buf), "(dead) * [%s] %s", players[pid].name, &input[4]);
 				broadcast_ghosts(buf, -1);
 			}
-		} else if (strncmp(input, "/shrug", 6) == 0) {	
+		} else if (strncmp(input, "/shrug", 6) == 0) {
 			if (alive(players[pid])) {
 				snprintf(buf, sizeof(buf), "(%d) [%s]: ¯\\_(ツ)_/¯", state.chats_left, players[pid].name);
 				broadcast(buf, -1);
