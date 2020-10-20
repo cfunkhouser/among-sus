@@ -1080,6 +1080,7 @@ void reassign_admin() {
 		if (players[i].fd == -1 || players[i].stage == PLAYER_STAGE_NAME)
 			continue;
 		players[i].is_admin = 1;
+		state.has_admin = 1;
 		snprintf(buf, sizeof(buf), " ** Admin left, new admin is %s **\n", players[i].name);
 		broadcast(buf, -1);
 		return;
