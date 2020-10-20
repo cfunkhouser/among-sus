@@ -151,8 +151,8 @@ const char locations[][45] = {
 enum player_location doors[][10] = {
 	[LOC_CAFETERIA] = { LOC_MEDBAY, LOC_ADMIN, LOC_WEAPONS, LOC_COUNT },
 	[LOC_REACTOR] = { LOC_UPPER_ENGINE, LOC_SECURITY, LOC_LOWER_ENGINE, LOC_COUNT },
-	[LOC_UPPER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, LOC_MEDBAY, LOC_COUNT },
-	[LOC_LOWER_ENGINE] = { LOC_REACTOR, LOC_ELECTRICAL, LOC_COUNT },
+	[LOC_UPPER_ENGINE] = { LOC_REACTOR, LOC_SECURITY, LOC_ELECTRICAL, LOC_MEDBAY, LOC_COUNT },
+	[LOC_LOWER_ENGINE] = { LOC_REACTOR, LOC_SECURITY, LOC_ELECTRICAL, LOC_COUNT },
 	[LOC_SECURITY] = { LOC_UPPER_ENGINE, LOC_REACTOR, LOC_LOWER_ENGINE, LOC_COUNT },
 	[LOC_MEDBAY] = { LOC_UPPER_ENGINE, LOC_CAFETERIA, LOC_COUNT },
 	[LOC_ELECTRICAL] = { LOC_LOWER_ENGINE, LOC_STORAGE, LOC_COUNT },
@@ -430,6 +430,26 @@ task_completed(size_t pid, size_t task_id, int long_task)
 
 	check_win_condition();
 }
+
+void
+list_rooms_with_players(size_t pid) {
+	int count[LOC_COUNT] = {0};
+	char buf[100];
+
+	for (size_t i = 0; i < NUM_PLAYERS; i++) {
+		if (players[i].fd != -1 && alive(players[i]))
+			count[players[i].location]++;
+	}
+
+	for (int i=0;i<LOC_COUNT;i++) {
+		if (count[i] > 0) {
+			snprintf(buf, sizeof(buf), " * There are %d players in %s\n",
+					count[i], locations[i]);
+			write(players[pid].fd, buf, strlen(buf));
+		}
+	}
+}
+
 
 void
 player_list_tasks(size_t pid)
@@ -914,6 +934,9 @@ adventure(size_t pid, char *input)
 		}
 	} else if (strcmp(input, "check tasks") == 0) {
 		player_list_tasks(pid);
+		return;
+	} else if (strcmp(input, "look at monitors") == 0) {
+		list_rooms_with_players(pid);
 		return;
 	} else if (strcmp(input, "help") == 0) {
 		snprintf(buf, sizeof(buf), "Commands: help, examine room, go [room], murder crewmate, report, check tasks\n# ");
