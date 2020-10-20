@@ -996,6 +996,7 @@ start_game()
 	unsigned temp;
 
 	broadcast("---------- [ Game is starting ] ----------", -1);
+	broadcast("\a", -1); /* Alarm beep for y'all multitaskers */
 	state.stage = STAGE_PLAYING;
 	state.players = 0;
 	for(int i=0; i<NUM_PLAYERS; i++) {
