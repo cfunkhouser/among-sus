@@ -238,6 +238,7 @@ struct gamestate {
 	int is_reactor_meltdown;
 	int chats_left;
 	int skips;
+	unsigned int impostor_cooldown;
 };
 
 struct gamestate state;
@@ -311,7 +312,8 @@ player_move(size_t pid, enum player_location location)
 
 	printf("Moving player %zu to %d\n", pid, location);
 	players[pid].location = location;
-	players[pid].has_cooldown = 0;
+	if (players[pid].has_cooldown != 0)
+		--players[pid].has_cooldown;
 
 	// body detection
 	for (size_t i = 0; i < NUM_PLAYERS; i++) {
@@ -509,7 +511,7 @@ player_kill(size_t pid, size_t tid)
 	players[tid].state = PLAYER_STATE_DEAD;
 
 	// less murdering, reset by movement
-	players[pid].has_cooldown = 1;
+	players[pid].has_cooldown = state.impostor_cooldown;
 
 	// notify player of their recent death
 	snprintf(buf, sizeof(buf), "It turns out %s is the imposter, sadly the way you know is that you died.\n",
@@ -1087,6 +1089,32 @@ void reassign_admin() {
 	}
 }
 
+void
+set(char *buf, size_t buf_len, int fd, int pid)
+{
+	if (strncmp(&buf[5],"kill-cooldown", 13) == 0) {
+		char *nextptr = NULL;
+		int value = strtol(&buf[19], &nextptr, 10);
+		if (nextptr == &buf[19]) {
+			const char *msg = "Error: you didn't enter any number. Leaving current value...\n";
+			write(fd, msg, strlen(msg));
+		} else if (value < 0) {
+			const char *msg = "Error: negative numbers aren't allowed. Leaving current value...\n";
+			write(fd, msg, strlen(msg));
+		} else if (nextptr != NULL && nextptr[0] == '\0') {
+			state.impostor_cooldown = value;
+			snprintf(buf, buf_len, "%s changed imposter cooldown to %d.", players[pid].name, state.impostor_cooldown);
+			broadcast(buf, -1);
+		} else {
+			const char *msg = "Error: invalid input. Leaving current value...\n";
+			write(fd, msg, strlen(msg));
+		}
+	} else {
+		const char *msg = "Error: you didn't write a valid property.\n";
+		write(fd, msg, strlen(msg));
+	}
+}
+
 int
 handle_input(int fd)
 {
@@ -1205,6 +1233,13 @@ handle_input(int fd)
 						}
 						write(fd, buf, strlen(buf));
 					}
+				} else if (strncmp(buf, "/set ", 5) == 0) {
+					if (players[pid].is_admin)
+						set(buf, sizeof(buf), fd, pid);
+					else {
+						const char *msg = "You don't have permission to /set\n";
+						write(fd, msg, strlen(msg));
+					}
 				}
 			} else {
 				for (size_t i = 0; i < strlen(buf); i++) {
@@ -1266,6 +1301,9 @@ welcome_player(int fd)
 int
 main(void)
 {
+	// Set default settings
+	state.impostor_cooldown = 1;
+
 	int listen_fd, listen6_fd, new_fd, i;
 	uint16_t port = 1234;
 	socklen_t client_size;
