@@ -1118,7 +1118,7 @@ set(char *buf, size_t buf_len, int fd, int pid)
 int
 handle_input(int fd)
 {
-	char buf[200];
+	char buf[200] = {0};
 	char buf2[300];
 	ssize_t len;
 	size_t pid;
@@ -1131,7 +1131,7 @@ handle_input(int fd)
 	}
 
 	// Get the input
-	len = read(fd, buf, 200);
+	len = read(fd, buf, 199);
 	if (len < 0) {
 		printf("Read error from player %zu\n", pid);
 		players[pid].fd = -1;
