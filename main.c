@@ -218,7 +218,7 @@ struct player {
 	enum player_stage stage;
 	char name[MAX_NAME + 1];
 	int is_admin;
-	int is_imposter;
+	int is_impostor;
 	enum player_location location;
 	enum player_state state;
 	int has_cooldown;
@@ -366,10 +366,10 @@ check_win_condition(void)
 	size_t nalive = 0, iid = 0, tasks = 1;
 
 	for (size_t i = 0; i < NUM_PLAYERS; i++) {
-		if (players[i].fd != -1 && players[i].is_imposter)
+		if (players[i].fd != -1 && players[i].is_impostor)
 			iid = i;
 
-		if (players[i].is_imposter == 1
+		if (players[i].is_impostor == 1
 				&& !alive(players[i])) {
 			broadcast("The crew won", -1);
 			end_game();
@@ -377,10 +377,10 @@ check_win_condition(void)
 		}
 
 		if (players[i].fd != -1 && alive(players[i])
-				&& players[i].is_imposter == 0)
+				&& players[i].is_impostor == 0)
 			nalive++;
 
-		if (players[i].fd != -1 && !players[i].is_imposter) {
+		if (players[i].fd != -1 && !players[i].is_impostor) {
 			for (size_t j = 0; j < NUM_SHORT; j++) {
 				if (!players[i].short_tasks_done[j]) {
 					tasks = 0;
@@ -403,8 +403,8 @@ check_win_condition(void)
 	}
 
 	if (nalive == 1) {
-		broadcast("The imposter is alone with the last crewmate and murders him", -1);
-		snprintf(buf, sizeof(buf), "The imposter was [%s] all along...", players[iid].name);
+		broadcast("The impostor is alone with the last crewmate and murders him", -1);
+		snprintf(buf, sizeof(buf), "The impostor was [%s] all along...", players[iid].name);
 		broadcast(buf, -1);
 		end_game();
 		return 1;
@@ -504,7 +504,7 @@ player_kill(size_t pid, size_t tid)
 	char buf[100];
 
 	if(players[pid].location != players[tid].location
-			|| players[tid].is_imposter)
+			|| players[tid].is_impostor)
 		return;
 
 	// so sad
@@ -514,7 +514,7 @@ player_kill(size_t pid, size_t tid)
 	players[pid].has_cooldown = state.impostor_cooldown;
 
 	// notify player of their recent death
-	snprintf(buf, sizeof(buf), "It turns out %s is the imposter, sadly the way you know is that you died.\n",
+	snprintf(buf, sizeof(buf), "It turns out %s is the impostor, sadly the way you know is that you died.\n",
 		players[pid].name);
 	write(players[tid].fd, buf, strlen(buf));
 
@@ -707,11 +707,11 @@ check_votes:
 			}
 
 			players[winner].state = PLAYER_STATE_EJECTED;
-			if (players[winner].is_imposter) {
-				snprintf(buf, sizeof(buf), "It turns out [%s] was an imposter", players[winner].name);
+			if (players[winner].is_impostor) {
+				snprintf(buf, sizeof(buf), "It turns out [%s] was an impostor", players[winner].name);
 				broadcast(buf, -1);
 			} else {
-				snprintf(buf, sizeof(buf), "Sadly, [%s] was not an imposter", players[winner].name);
+				snprintf(buf, sizeof(buf), "Sadly, [%s] was not an impostor", players[winner].name);
 				broadcast(buf, -1);
 
 			}
@@ -894,7 +894,7 @@ adventure(size_t pid, char *input)
 			}
 		}
 	} else if (strcmp(input, "murder crewmate") == 0) {
-		if (players[pid].is_imposter == 0) {
+		if (players[pid].is_impostor == 0) {
 			snprintf(buf, sizeof(buf), "you might dislike them, but you can't kill them without weapon\n# ");
 		} else if (players[pid].has_cooldown) {
 			snprintf(buf, sizeof(buf), "you can't kill that quickly\n# ");
@@ -993,7 +993,7 @@ adventure(size_t pid, char *input)
 void
 start_game()
 {
-	int imposternum, assigned;
+	int impostornum, assigned;
 	char buf[200];
 	unsigned temp;
 
@@ -1007,8 +1007,8 @@ start_game()
 		}
 	}
 
-	// Pick an imposter
-	imposternum = random_num(state.players);
+	// Pick an impostor
+	impostornum = random_num(state.players);
 	assigned = 0;
 	for(int i=0; i<NUM_PLAYERS; i++) {
 		if(players[i].fd == -1)
@@ -1042,11 +1042,11 @@ retry2:
 			players[i].long_tasks_done[j] = 0;
 		}
 
-		if (assigned == imposternum) {
-			players[i].is_imposter = 1;
-			snprintf(buf, sizeof(buf), "You are the imposter, kill everyone without getting noticed.\n");
+		if (assigned == impostornum) {
+			players[i].is_impostor = 1;
+			snprintf(buf, sizeof(buf), "You are the impostor, kill everyone without getting noticed.\n");
 		} else {
-			players[i].is_imposter = 0;
+			players[i].is_impostor = 0;
 			snprintf(buf, sizeof(buf), "You are a crewmate, complete your tasks before everyone is killed.\n");
 		}
 		write(players[i].fd, buf, strlen(buf));
@@ -1064,7 +1064,7 @@ retry2:
 		if(players[i].fd == -1)
 			continue;
 
-		if(players[i].is_imposter) {
+		if(players[i].is_impostor) {
 			snprintf(buf, sizeof(buf), "You are in a spaceship, the other %d crew members think you're on of them\n# ", assigned - 1);
 			write(players[i].fd, buf, strlen(buf));
 		} else {
@@ -1103,7 +1103,7 @@ set(char *buf, size_t buf_len, int fd, int pid)
 			write(fd, msg, strlen(msg));
 		} else if (nextptr != NULL && nextptr[0] == '\0') {
 			state.impostor_cooldown = value;
-			snprintf(buf, buf_len, "%s changed imposter cooldown to %d.", players[pid].name, state.impostor_cooldown);
+			snprintf(buf, buf_len, "%s changed impostor cooldown to %d.", players[pid].name, state.impostor_cooldown);
 			broadcast(buf, -1);
 		} else {
 			const char *msg = "Error: invalid input. Leaving current value...\n";
