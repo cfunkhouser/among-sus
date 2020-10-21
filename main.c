@@ -1115,6 +1115,14 @@ set(char *buf, size_t buf_len, int fd, int pid)
 	}
 }
 
+void
+list_set(int pid)
+{
+	char buf[100];
+	snprintf(buf, sizeof(buf), " kill-cooldown = %d\n", state.impostor_cooldown);
+	write(players[pid].fd, buf, strlen(buf));
+}
+
 int
 handle_input(int fd)
 {
@@ -1233,7 +1241,11 @@ handle_input(int fd)
 						}
 						write(fd, buf, strlen(buf));
 					}
-				} else if (strncmp(buf, "/set ", 5) == 0) {
+				} else if (strncmp(buf, "/set", 4) == 0) {
+					if (strlen(buf) == 4) {
+						list_set(pid);
+						return 0;
+					}
 					if (players[pid].is_admin)
 						set(buf, sizeof(buf), fd, pid);
 					else {
