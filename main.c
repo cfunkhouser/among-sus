@@ -766,19 +766,27 @@ not_yet:
 			goto check_votes;
 
 		} else if (strncmp(input, "/me ", 4) == 0) {
-			if (alive(players[pid])) {
+			if (state.chats_left > 0 && alive(players[pid])) {
 				snprintf(buf, sizeof(buf), "(%d) * [%s] %s", state.chats_left, players[pid].name, &input[4]);
 				broadcast(buf, -1);
 				state.chats_left--;
+			} else if (alive(players[pid])) {
+				snprintf(buf, sizeof(buf), "No chats left, you can only vote now\n");
+				write(players[pid].fd, buf, strlen(buf));
+				return;
 			} else {
 				snprintf(buf, sizeof(buf), "(dead) * [%s] %s", players[pid].name, &input[4]);
 				broadcast_ghosts(buf, -1);
 			}
 		} else if (strncmp(input, "/shrug", 6) == 0) {
-			if (alive(players[pid])) {
+			if (state.chats_left > 0 && alive(players[pid])) {
 				snprintf(buf, sizeof(buf), "(%d) [%s]: ¯\\_(ツ)_/¯", state.chats_left, players[pid].name);
 				broadcast(buf, -1);
 				state.chats_left--;
+			} else if (alive(players[pid])) {
+				snprintf(buf, sizeof(buf), "No chats left, you can only vote now\n");
+				write(players[pid].fd, buf, strlen(buf));
+				return;
 			} else {
 				snprintf(buf, sizeof(buf), "(dead) [%s]: ¯\\_(ツ)_/¯", players[pid].name);
 				broadcast_ghosts(buf, -1);
@@ -802,7 +810,7 @@ not_yet:
 			broadcast_ghosts(buf, -1);
 		}
 	} else {
-		if (state.chats_left == 0 && alive(players[pid])) {
+		if (state.chats_left <= 0 && alive(players[pid])) {
 			snprintf(buf, sizeof(buf), "No chats left, you can only vote now\n");
 			write(players[pid].fd, buf, strlen(buf));
 			return;
