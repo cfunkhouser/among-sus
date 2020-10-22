@@ -23,7 +23,9 @@
 #define MIN_NAME 2
 #define MAX_NAME 10
 
+#ifndef MOVEMENT_NOTIFICATIONS
 #define MOVEMENT_NOTIFICATIONS 1
+#endif
 
 enum game_stage {
 	STAGE_LOBBY,
