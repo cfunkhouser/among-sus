@@ -71,3 +71,7 @@ If a body has been found or a meeting has been called everyone gets thrown in th
 After everyone has voted either the game moves directly back to the playing stage or someone gets thrown off. After the player has been ejected it will be visible if it was the imposter (and then the game has been won by the crew) or if someone innocent was ejected. Then the game moves back to the playing stage.
 
 The crew can win by having everyone complete all the tasks or by voting out the imposter. The imposter can win by killing all the crew or by making the crew vote out all their crewmates.
+
+# Development
+
+There's #among-sus on freenode. Patches go to https://lists.sr.ht/~martijnbraam/public-inbox
