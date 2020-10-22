@@ -44,6 +44,8 @@ This starts the server on port 1234. then players can connect to it with any too
 $ nc 127.0.0.1 1234
 ```
 
+For an improved experience you can use `rlwrap nc` instead to don't have incoming messages mess up your input
+
 ## Joining the game
 
 Players can only join while the game is in the pre-game lobby state. People are asked for a name and then end up in the lobby chat. One player is the admin, usually the first person to connect. That person can execute the /start command to start round. Other chat commands are described in /help
