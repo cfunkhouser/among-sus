@@ -1,6 +1,6 @@
 # Among sus
 
-A recreation of Among Us mechanics but as a multiplayer text adventure game instead of a graphical client. 
+A recreation of Among Us mechanics but as a multiplayer text adventure game instead of a graphical client.
 
 ```
 |\----------------|--------------|----------------|--------------\
@@ -30,7 +30,7 @@ A recreation of Among Us mechanics but as a multiplayer text adventure game inst
 $ make
 ```
 
-That's it. 
+That's it.
 
 ## Running
 
