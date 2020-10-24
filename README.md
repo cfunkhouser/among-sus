@@ -2,6 +2,8 @@
 
 A recreation of Among Us mechanics but as a multiplayer text adventure game instead of a graphical client.
 
+*Forked from https://git.sr.ht/~martijnbraam/among-sus just to add Docker support. I will contribute back upstream ASAP!*
+
 ```
 |\----------------|--------------|----------------|--------------\
 |                                                                 \
@@ -45,6 +47,19 @@ $ nc 127.0.0.1 1234
 ```
 
 For an improved experience you can use `rlwrap nc` instead to don't have incoming messages mess up your input
+
+## Docker
+
+```shell-session
+$ docker build -t $YOUR_TAG_NAME .
+```
+
+The run it.
+
+```shell-session
+$ docker run --rm -p 1234:1234 $YOUR_TAG_NAME
+```
+
 
 ## Joining the game
 
